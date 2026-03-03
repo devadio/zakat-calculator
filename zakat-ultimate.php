@@ -1,13 +1,15 @@
 <?php
 /**
  * Plugin Name: Zakat Ultimate
- * Description: Ultimate lightweight Zakat & Sadaqah calculator with correct Islamic calculations
- * Version: 3.1.0
+ * Description: Lightweight Ramadan calculator for Zakat al-Maal, Zakat al-Fitr, Fidya, and Kaffarah.
+ * Version: 3.2.0
  * Author: Custom Plugin
  * Text Domain: zakat-ultimate
  */
 
-if (!defined('ABSPATH')) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 add_shortcode('zakat_ultimate', 'zscu_render_calculator');
 add_shortcode('zakat_ultimate_pro', 'zscu_render_calculator_pro');
@@ -22,1002 +24,583 @@ function zscu_render_calculator_pro($atts) {
 
 function zscu_render_calculator_base($atts, $show_cta) {
     $id = 'zscu-' . wp_rand(1000, 9999);
-    $cta_url = 'https://lph.elvefa.org/';
-    
+    $atts = shortcode_atts(
+        array(
+            'default' => 'maal',
+        ),
+        (array) $atts,
+        'zakat_ultimate'
+    );
+    $default_mode = zscu_normalize_default_mode($atts['default']);
+
     ob_start();
     ?>
-    <div id="<?php echo esc_attr($id); ?>" class="zscu-wrap">
+    <div id="<?php echo esc_attr($id); ?>" class="zscu-wrap" data-show-cta="<?php echo $show_cta ? '1' : '0'; ?>" data-default-mode="<?php echo esc_attr($default_mode); ?>">
         <style>
-            /* Base - Fixed container */
-            .zscu-wrap {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                max-width: 600px;
-                margin: 20px auto;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-                padding: 24px;
-                min-height: 520px;
-                max-height: 620px;
-                display: flex;
-                flex-direction: column;
-                position: relative;
-                overflow: hidden;
-            }
-            
-            .zscu-content {
-                flex: 1;
-                overflow-y: auto;
-                padding-right: 8px;
-                margin-right: -8px;
-            }
-            
-            .zscu-content::-webkit-scrollbar { width: 6px; }
-            .zscu-content::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
-            .zscu-content::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
-            
-            .zscu-step { display: none; animation: zscuFadeIn 0.3s ease; }
-            .zscu-step.active { display: block; }
-            @keyframes zscuFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            
-            /* Progress */
-            .zscu-progress {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 8px;
-                margin-bottom: 20px;
-                flex-shrink: 0;
-            }
-            .zscu-step-dot {
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                background: #e0e0e0;
-                transition: 0.3s;
-            }
-            .zscu-step-dot.active { background: #1a5f3c; transform: scale(1.3); }
-            .zscu-step-dot.completed { background: #2e8b57; }
-            .zscu-step-line {
-                width: 20px;
-                height: 2px;
-                background: #e0e0e0;
-            }
-            .zscu-step-line.completed { background: #2e8b57; }
-            
-            /* Typography */
-            .zscu-title {
-                text-align: center;
-                font-size: 20px;
-                font-weight: 700;
-                color: #1a5f3c;
-                margin-bottom: 4px;
-            }
-            .zscu-subtitle {
-                text-align: center;
-                color: #666;
-                font-size: 13px;
-                margin-bottom: 16px;
-            }
-            
-            /* Language Search */
-            .zscu-search {
-                width: 100%;
-                padding: 12px 16px;
-                border: 2px solid #e5e7eb;
-                border-radius: 10px;
-                font-size: 14px;
-                margin-bottom: 12px;
-                box-sizing: border-box;
-            }
-            .zscu-search:focus {
-                outline: none;
-                border-color: #1a5f3c;
-            }
-            
-            /* Language List */
-            .zscu-langs {
-                max-height: 280px;
-                overflow-y: auto;
-                border: 1px solid #e5e7eb;
-                border-radius: 10px;
-            }
-            .zscu-lang {
-                display: flex;
-                align-items: center;
-                padding: 10px 14px;
-                cursor: pointer;
-                border-bottom: 1px solid #f3f4f6;
-                transition: 0.15s;
-            }
-            .zscu-lang:hover { background: #f9fafb; }
-            .zscu-lang.selected { background: #f0fdf4; border-left: 3px solid #1a5f3c; }
-            .zscu-lang .flag { font-size: 22px; margin-right: 12px; }
-            .zscu-lang .name { font-weight: 600; color: #1f2937; font-size: 14px; }
-            
-            /* Cards Grid */
-            .zscu-cards {
-                display: grid;
-                gap: 10px;
-                margin-bottom: 16px;
-            }
-            
-            /* MAIN TYPE Cards (Zakat/Sadaqah) - LARGE */
-            .zscu-cards.main-types {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .zscu-card-main {
-                border: 2px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 20px 16px;
-                text-align: center;
-                cursor: pointer;
-                transition: 0.25s;
-                background: #fff;
-            }
-            .zscu-card-main:hover {
-                border-color: #1a5f3c;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(26,95,60,0.15);
-            }
-            .zscu-card-main.selected {
-                border-color: #1a5f3c;
-                background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-            }
-            .zscu-card-main .icon { font-size: 36px; margin-bottom: 8px; display: block; }
-            .zscu-card-main .label { font-weight: 700; color: #1f2937; font-size: 15px; }
-            .zscu-card-main .desc { font-size: 11px; color: #6b7280; margin-top: 4px; }
-            
-            /* SUBTYPE Cards - SMALLER compact grid */
-            .zscu-cards.sub-types {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .zscu-card-sub {
-                border: 2px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 14px 10px;
-                text-align: center;
-                cursor: pointer;
-                transition: 0.2s;
-                background: #fff;
-            }
-            .zscu-card-sub:hover {
-                border-color: #1a5f3c;
-                background: #f9fafb;
-            }
-            .zscu-card-sub.selected {
-                border-color: #1a5f3c;
-                background: #f0fdf4;
-            }
-            .zscu-card-sub .icon { font-size: 24px; margin-bottom: 6px; display: block; }
-            .zscu-card-sub .label { font-weight: 600; color: #374151; font-size: 12px; line-height: 1.3; word-wrap: break-word; }
-            
-            /* Form */
-            .zscu-form-group { margin-bottom: 14px; }
-            .zscu-label {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #374151;
-                margin-bottom: 6px;
-                text-transform: uppercase;
-            }
-            .zscu-input, .zscu-select {
-                width: 100%;
-                padding: 12px 14px;
-                border: 2px solid #e5e7eb;
-                border-radius: 8px;
-                font-size: 14px;
-                box-sizing: border-box;
-                transition: 0.2s;
-            }
-            .zscu-input:focus, .zscu-select:focus {
-                outline: none;
-                border-color: #1a5f3c;
-            }
-            .zscu-select-wrap { position: relative; }
-            .zscu-select-wrap::after {
-                content: '▼';
-                position: absolute;
-                right: 12px;
-                top: 50%;
-                transform: translateY(-50%);
-                color: #6b7280;
-                font-size: 10px;
-                pointer-events: none;
-            }
-            .zscu-select { padding-right: 30px; appearance: none; cursor: pointer; }
-            
-            /* Help */
-            .zscu-help {
-                display: inline-flex;
-                width: 16px;
-                height: 16px;
-                border-radius: 50%;
-                background: #e5e7eb;
-                color: #666;
-                font-size: 10px;
-                align-items: center;
-                justify-content: center;
-                cursor: help;
-                position: relative;
-            }
-            .zscu-help:hover { background: #1a5f3c; color: #fff; }
-            .zscu-tooltip {
-                position: absolute;
-                bottom: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #1f2937;
-                color: #fff;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 11px;
-                width: 180px;
-                margin-bottom: 8px;
-                opacity: 0;
-                visibility: hidden;
-                transition: 0.2s;
-                z-index: 100;
-                line-height: 1.4;
-                text-transform: none;
-                font-weight: 400;
-            }
-            .zscu-tooltip::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                border: 5px solid transparent;
-                border-top-color: #1f2937;
-            }
-            .zscu-help:hover .zscu-tooltip { opacity: 1; visibility: visible; }
-            
-            /* Buttons */
-            .zscu-btns {
-                display: flex;
-                gap: 10px;
-                margin-top: 16px;
-                flex-shrink: 0;
-                padding-top: 12px;
-                border-top: 1px solid #f3f4f6;
-            }
-            .zscu-btn {
-                flex: 1;
-                padding: 12px 16px;
-                border: none;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: 0.25s;
-            }
-            .zscu-btn-primary {
-                background: linear-gradient(135deg, #1a5f3c, #2e8b57);
-                color: #fff;
-            }
-            .zscu-btn-primary:hover { transform: translateY(-1px); }
-            .zscu-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-            .zscu-btn-secondary { background: #f3f4f6; color: #4b5563; }
-            .zscu-btn-secondary:hover { background: #e5e7eb; }
-            
-            /* Results */
-            .zscu-result {
-                text-align: center;
-                padding: 20px;
-                background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-                border-radius: 12px;
-                margin-bottom: 16px;
-            }
-            .zscu-status {
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                padding: 6px 12px;
-                border-radius: 16px;
-                font-size: 12px;
-                font-weight: 600;
-                margin-bottom: 10px;
-            }
-            .zscu-status.eligible { background: #dcfce7; color: #166534; }
-            .zscu-status.not-eligible { background: #fee2e2; color: #991b1b; }
-            .zscu-amount { font-size: 32px; font-weight: 800; color: #1a5f3c; }
-            .zscu-amount-label { color: #6b7280; font-size: 13px; }
-            .zscu-rate {
-                display: inline-block;
-                background: rgba(26,95,60,0.1);
-                color: #1a5f3c;
-                padding: 3px 10px;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: 600;
-                margin-top: 6px;
-            }
-            
-            /* Breakdown */
-            .zscu-breakdown {
-                background: #fff;
-                border-radius: 10px;
-                padding: 14px;
-                margin-bottom: 14px;
-                border: 1px solid #e5e7eb;
-            }
-            .zscu-breakdown-title {
-                font-weight: 700;
-                color: #1f2937;
-                font-size: 13px;
-                margin-bottom: 10px;
-                padding-bottom: 8px;
-                border-bottom: 1px solid #e5e7eb;
-            }
-            .zscu-row {
-                display: flex;
-                justify-content: space-between;
-                padding: 6px 0;
-                font-size: 13px;
-            }
-            .zscu-row:last-child { font-weight: 700; color: #1a5f3c; }
-            .zscu-row-label { color: #4b5563; }
-            .zscu-row-value { color: #1f2937; font-weight: 500; }
-            .zscu-row-value.deduct { color: #dc2626; }
-            
-            /* CTA */
-            .zscu-cta {
-                background: linear-gradient(135deg, #1a5f3c, #2e8b57);
-                color: #fff;
-                padding: 18px;
-                border-radius: 10px;
-                text-align: center;
-                margin-top: 16px;
-            }
-            .zscu-cta-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
-            .zscu-cta-text { font-size: 13px; opacity: 0.95; margin-bottom: 12px; }
-            .zscu-cta-btn {
-                display: inline-block;
-                background: #fff;
-                color: #1a5f3c;
-                padding: 10px 24px;
-                border-radius: 8px;
-                font-weight: 700;
-                text-decoration: none;
-                font-size: 14px;
-            }
-            
-            /* RTL */
-            .zscu-rtl { direction: rtl; }
-            .zscu-rtl .zscu-lang .flag { margin-right: 0; margin-left: 12px; }
-            
-            /* Mobile */
-            @media (max-width: 480px) {
-                .zscu-wrap {
-                    margin: 10px;
-                    padding: 16px;
-                    min-height: 480px;
-                    max-height: 580px;
-                    border-radius: 12px;
-                }
-                .zscu-cards.sub-types { grid-template-columns: repeat(2, 1fr); }
-                .zscu-card-main { padding: 16px 12px; }
-                .zscu-card-main .icon { font-size: 30px; }
-                .zscu-card-sub .icon { font-size: 20px; }
-                .zscu-title { font-size: 18px; }
-                .zscu-amount { font-size: 28px; }
-            }
+            .zscu-wrap{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:620px;margin:20px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:16px;min-height:540px;max-height:640px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #e5e7eb;position:relative}
+            .zscu-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+            .zscu-title{margin:0;color:#1a5f3c;font-size:18px;font-weight:800;line-height:1.2}
+            .zscu-sub{margin:4px 0 0;color:#4b5563;font-size:13px}
+            .zscu-lang{position:relative}
+            .zscu-lang-btn{border:1px solid #d1d5db;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;display:flex;gap:6px;align-items:center;cursor:pointer}
+            .zscu-lang-menu{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.1);display:none;max-height:220px;overflow:auto;z-index:5;min-width:170px}
+            .zscu-lang-menu.open{display:block}
+            .zscu-lang-item{width:100%;background:transparent;border:0;padding:8px 10px;display:flex;justify-content:space-between;cursor:pointer;text-align:left}
+            .zscu-lang-item:hover{background:#f9fafb}
+            .zscu-content{flex:1;overflow-y:auto;padding-right:6px;margin-right:-6px}
+            .zscu-content::-webkit-scrollbar{width:6px}.zscu-content::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px}
+            .zscu-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 10px}
+            .zscu-choose{margin:6px 0 0;font-size:13px;font-weight:700;color:#374151}
+            .zscu-mode{border:2px solid #e5e7eb;background:#fff;border-radius:10px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer}
+            .zscu-mode.active{border-color:#1a5f3c;background:#f0fdf4;color:#14532d}
+            .zscu-panel{display:none}.zscu-panel.active{display:block}
+            .zscu-pt{margin:0 0 8px;font-size:17px;font-weight:800;color:#1f2937}
+            .zscu-note{margin:0 0 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;color:#334155;font-size:12px;line-height:1.5;white-space:pre-line}
+            .zscu-note-green{background:#f0fdf4;border-color:#bbf7d0}
+            .zscu-checks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+            .zscu-check{border:1px solid #d1d5db;border-radius:8px;padding:8px;display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600}
+            .zscu-field{margin-bottom:10px}.zscu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+            .zscu-label{display:block;margin-bottom:5px;font-size:12px;font-weight:700;color:#374151}
+            .zscu-input,.zscu-select{width:100%;border:2px solid #e5e7eb;border-radius:8px;padding:10px 12px;font-size:14px;box-sizing:border-box}
+            .zscu-input:focus,.zscu-select:focus,.zscu-mode:focus-visible,.zscu-btn:focus-visible,.zscu-help:focus-visible,.zscu-lang-btn:focus-visible{outline:2px solid #1a5f3c;outline-offset:2px}
+            .zscu-choices{display:grid;gap:8px;margin-bottom:10px}
+            .zscu-choice{border:1px solid #d1d5db;border-radius:9px;padding:10px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
+            .zscu-choice-main{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+            .zscu-help{border:0;width:20px;height:20px;border-radius:999px;background:#e5e7eb;font-weight:800;cursor:pointer}
+            .zscu-err{border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:9px;padding:8px 10px;font-size:12px;margin-bottom:10px}
+            .zscu-err[hidden]{display:none}
+            .zscu-actions{display:flex;gap:8px;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:6px}
+            .zscu-btn{flex:1;border:0;border-radius:8px;padding:11px 12px;font-size:14px;font-weight:700;cursor:pointer}
+            .zscu-btn-primary{color:#fff;background:linear-gradient(135deg,#1a5f3c,#2e8b57)}
+            .zscu-btn-primary.is-disabled{opacity:.55;cursor:not-allowed}
+            .zscu-btn-secondary{background:#f3f4f6;color:#374151}
+            .zscu-input-error{border-color:#fca5a5 !important;background:#fff1f2}
+            .zscu-select-error{border-color:#fca5a5 !important;background:#fff1f2}
+            .zscu-check-error{border-color:#fca5a5 !important;background:#fff1f2}
+            .zscu-choice-error{border-color:#fca5a5 !important;background:#fff1f2}
+            .zscu-result-wrap{margin-top:12px}.zscu-result-wrap[hidden]{display:none}
+            .zscu-rt{margin:0 0 8px;font-size:16px;font-weight:800}
+            .zscu-result{border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff}
+            .zscu-status{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700}
+            .zscu-status.ok{background:#dcfce7;color:#166534}.zscu-status.bad{background:#fee2e2;color:#991b1b}.zscu-status.info{background:#dbeafe;color:#1e3a8a}
+            .zscu-result-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+            .zscu-amount-inline{font-size:22px;font-weight:900;color:#1a5f3c;line-height:1}
+            .zscu-amount-inline-label{font-size:13px;color:#374151;font-weight:700}
+            .zscu-rows{border-top:1px solid #e5e7eb;padding-top:8px}
+            .zscu-row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:12px}.zscu-row strong{color:#111827}
+            .zscu-summary{margin-top:8px;border-top:1px dashed #d1d5db;padding-top:8px;font-size:12px;font-weight:600}
+            .zscu-cta{margin-top:10px;background:transparent;color:#1a5f3c;border-top:1px solid #bbf7d0;padding:10px 0 0;font-size:14px;font-weight:800;text-align:center;line-height:1.4}
+            .zscu-modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.48);display:none;align-items:center;justify-content:center;padding:14px;z-index:9}
+            .zscu-modal-bg.open{display:flex}
+            .zscu-modal{max-width:430px;background:#fff;border-radius:12px;padding:14px}
+            .zscu-modal h4{margin:0 0 6px}.zscu-modal p{margin:0;font-size:13px;line-height:1.55;color:#374151}
+            .zscu-modal-actions{text-align:right;margin-top:10px}
+            .zscu-modal-close{border:0;border-radius:8px;background:#111827;color:#fff;padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer}
+            .zscu-rtl{direction:rtl}
+            .zscu-rtl .zscu-lang-item{text-align:right}
+            .zscu-rtl .zscu-choice-main{flex-direction:row-reverse}
+            .zscu-rtl .zscu-row{flex-direction:row-reverse}
+            @media (max-width:480px){.zscu-wrap{margin:10px;border-radius:12px;min-height:520px;max-height:620px;padding:14px}.zscu-modes,.zscu-checks,.zscu-grid{grid-template-columns:1fr}.zscu-amount-inline{font-size:20px}}
         </style>
-        
-        <!-- Progress -->
-        <div class="zscu-progress">
-            <div class="zscu-step-dot active" data-step="1"></div>
-            <div class="zscu-step-line"></div>
-            <div class="zscu-step-dot" data-step="2"></div>
-            <div class="zscu-step-line"></div>
-            <div class="zscu-step-dot" data-step="3"></div>
-            <div class="zscu-step-line"></div>
-            <div class="zscu-step-dot" data-step="4"></div>
+
+        <div class="zscu-head">
+            <div>
+                <h2 class="zscu-title" data-t="app_title">Zakat Calculator</h2>
+            </div>
+            <div class="zscu-lang">
+                <button type="button" class="zscu-lang-btn" data-r="lang-toggle" aria-expanded="false"><span data-r="lang-flag">🇺🇸</span><span data-r="lang-code">EN</span><span>▼</span></button>
+                <div class="zscu-lang-menu" data-r="lang-menu">
+                    <button class="zscu-lang-item" type="button" data-lang="en" data-flag="🇺🇸" data-code="EN" data-rtl="0"><span>🇺🇸 English</span><strong>EN</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="ar" data-flag="🇸🇦" data-code="AR" data-rtl="1"><span>🇸🇦 العربية</span><strong>AR</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="tr" data-flag="🇹🇷" data-code="TR" data-rtl="0"><span>🇹🇷 Türkçe</span><strong>TR</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="ur" data-flag="🇵🇰" data-code="UR" data-rtl="1"><span>🇵🇰 اردو</span><strong>UR</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="id" data-flag="🇮🇩" data-code="ID" data-rtl="0"><span>🇮🇩 Bahasa Indonesia</span><strong>ID</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="de" data-flag="🇩🇪" data-code="DE" data-rtl="0"><span>🇩🇪 Deutsch</span><strong>DE</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="es" data-flag="🇪🇸" data-code="ES" data-rtl="0"><span>🇪🇸 Español</span><strong>ES</strong></button>
+                    <button class="zscu-lang-item" type="button" data-lang="fr" data-flag="🇫🇷" data-code="FR" data-rtl="0"><span>🇫🇷 Français</span><strong>FR</strong></button>
+                </div>
+            </div>
         </div>
-        
-        <!-- Content Area -->
+
         <div class="zscu-content">
-        
-        <!-- Step 1: Language -->
-        <div class="zscu-step active" data-step="1">
-            <h2 class="zscu-title" id="zscu-t1">Select Language</h2>
-            <p class="zscu-subtitle" id="zscu-s1">Choose your preferred language</p>
-            
-            <input type="text" class="zscu-search" id="zscu-search" placeholder="Search languages...">
-            
-            <div class="zscu-langs" id="zscu-langs">
-                <div class="zscu-lang selected" data-lang="en" data-rtl="0"><span class="flag">🇬🇧</span><span class="name">English</span></div>
-                <div class="zscu-lang" data-lang="ar" data-rtl="1"><span class="flag">🇸🇦</span><span class="name">العربية</span></div>
-                <div class="zscu-lang" data-lang="id" data-rtl="0"><span class="flag">🇮🇩</span><span class="name">Bahasa Indonesia</span></div>
-                <div class="zscu-lang" data-lang="tr" data-rtl="0"><span class="flag">🇹🇷</span><span class="name">Türkçe</span></div>
-                <div class="zscu-lang" data-lang="ur" data-rtl="1"><span class="flag">🇵🇰</span><span class="name">اردو</span></div>
-                <div class="zscu-lang" data-lang="de" data-rtl="0"><span class="flag">🇩🇪</span><span class="name">Deutsch</span></div>
-                <div class="zscu-lang" data-lang="es" data-rtl="0"><span class="flag">🇪🇸</span><span class="name">Español</span></div>
-                <div class="zscu-lang" data-lang="fr" data-rtl="0"><span class="flag">🇫🇷</span><span class="name">Français</span></div>
+            <p class="zscu-choose" data-t="please_select">please select:</p>
+            <div class="zscu-modes">
+                <button type="button" class="zscu-mode active" data-mode="maal" data-t="mode_maal">Zakat al-Maal</button>
+                <button type="button" class="zscu-mode" data-mode="fitr" data-t="mode_fitr">Zakat al-Fitr</button>
+                <button type="button" class="zscu-mode" data-mode="fk" data-t="mode_fk">Fidya / Kaffarah</button>
+            </div>
+
+            <section class="zscu-panel active" data-panel="maal">
+                <h3 class="zscu-pt" data-t="maal_title">Zakat al-Maal</h3>
+                <p class="zscu-note" data-t="maal_intro">Zakat al-Maal is 2.5% (0.025) of total zakatable wealth after one lunar year (hawl), if it reaches nisab. You must reach either:
+Gold nisab = 85 grams of gold
+Silver nisab = 595 grams of silver
+In modern calculators, some scholars use silver nisab (it benefits the poor more), while others use gold nisab.</p>
+
+                <div class="zscu-checks">
+                    <label class="zscu-check"><input type="checkbox" data-f="asset_cash" checked><span data-t="asset_cash">Cash</span></label>
+                    <label class="zscu-check"><input type="checkbox" data-f="asset_gold"><span data-t="asset_gold">Gold</span></label>
+                    <label class="zscu-check"><input type="checkbox" data-f="asset_silver"><span data-t="asset_silver">Silver</span></label>
+                </div>
+
+                <div class="zscu-field" data-sec="cash">
+                    <label class="zscu-label" data-t="cash_amount">Cash amount (money)</label>
+                    <input class="zscu-input" type="number" min="0" step="0.01" data-f="cash">
+                </div>
+
+                <div class="zscu-grid" data-sec="gold" style="display:none">
+                    <div>
+                        <label class="zscu-label" data-t="gold_price">Gold price per gram (money)</label>
+                        <input class="zscu-input" type="number" min="0" step="0.01" data-f="gp">
+                    </div>
+                    <div>
+                        <label class="zscu-label" data-t="gold_weight">Gold weight (grams)</label>
+                        <input class="zscu-input" type="number" min="0" step="0.01" data-f="gw">
+                    </div>
+                </div>
+
+                <div class="zscu-grid" data-sec="silver" style="display:none">
+                    <div>
+                        <label class="zscu-label" data-t="silver_price">Silver price per gram (money)</label>
+                        <input class="zscu-input" type="number" min="0" step="0.01" data-f="sp">
+                    </div>
+                    <div>
+                        <label class="zscu-label" data-t="silver_weight">Silver weight (grams)</label>
+                        <input class="zscu-input" type="number" min="0" step="0.01" data-f="sw">
+                    </div>
+                </div>
+
+                <div class="zscu-field">
+                    <label class="zscu-label" data-t="nisab_label">Nisab standard</label>
+                    <select class="zscu-select" data-f="nisab">
+                        <option value="gold" data-t="nisab_gold">Gold (85g)</option>
+                        <option value="silver" data-t="nisab_silver">Silver (595g)</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="zscu-panel" data-panel="fitr">
+                <h3 class="zscu-pt" data-t="fitr_title">Zakat al-Fitr</h3>
+                <p class="zscu-note" data-t="fitr_intro">Zakat al-Fitr is one sa'a (about 2.5-3 kg staple food or cash equivalent) per person, estimated in the US in 2026 at $10-$15 per person. If a family head pays before Eid prayer for a household of 5 people including children, the total expected Zakat al-Fitr contribution is $50-$75.</p>
+
+                <div class="zscu-grid">
+                    <div>
+                        <label class="zscu-label" data-t="fitr_persons">Number of persons</label>
+                        <input class="zscu-input" type="number" min="1" step="1" data-f="fp">
+                    </div>
+                    <div>
+                        <label class="zscu-label" data-t="fitr_amount">Average zakat per person (money)</label>
+                        <input class="zscu-input" type="number" min="0" step="0.01" data-f="fa">
+                    </div>
+                </div>
+            </section>
+            <section class="zscu-panel" data-panel="fk">
+                <h3 class="zscu-pt" data-t="fk_title">Fidya / Kaffarah</h3>
+                <div class="zscu-choices">
+                    <label class="zscu-choice">
+                        <span class="zscu-choice-main"><input type="radio" name="<?php echo esc_attr($id); ?>-fk" data-f="fkm" value="fidya"><span data-t="fidya_label">Fidya (sick/elderly)</span></span>
+                        <button class="zscu-help" type="button" data-help="fidya">?</button>
+                    </label>
+                    <label class="zscu-choice">
+                        <span class="zscu-choice-main"><input type="radio" name="<?php echo esc_attr($id); ?>-fk" data-f="fkm" value="kaffarah"><span data-t="kaffarah_label">Kaffarah (Intentional fast-break)</span></span>
+                        <button class="zscu-help" type="button" data-help="kaffarah">?</button>
+                    </label>
+                </div>
+
+                <p class="zscu-note zscu-note-green" data-info="fidya" style="display:none" data-t="fidya_intro">Fidya is a day's meals (ta'am miskeen) estimated in the US in 2026 at about $12-$15 per day. If someone misses all 30 days of Ramadan, the expected Fidya contribution is about $360-$450.</p>
+                <p class="zscu-note zscu-note-green" data-info="kaffarah" style="display:none" data-t="kaffarah_intro">Kaffarah is feeding 60 poor people (ta'am 60 miskeen). In US-based estimates for 2026, it is often around $300-$600 per day and should be completed before makeup fasts (qada).</p>
+
+                <div class="zscu-grid">
+                    <div>
+                        <label class="zscu-label" data-t="missed_days">Missed days</label>
+                        <input class="zscu-input" type="number" min="1" step="1" data-f="fd">
+                    </div>
+                    <div>
+                        <label class="zscu-label" data-t="amount_day">Estimated amount per day (money)</label>
+                        <input class="zscu-input" type="number" min="0" step="0.01" data-f="fda">
+                    </div>
+                </div>
+
+                <div class="zscu-field">
+                    <label class="zscu-label" data-t="persons">Number of persons</label>
+                    <input class="zscu-input" type="number" min="1" step="1" data-f="fkp">
+                </div>
+            </section>
+
+            <div class="zscu-err" data-r="err" hidden></div>
+
+            <div class="zscu-actions">
+                <button type="button" class="zscu-btn zscu-btn-primary" data-r="submit" data-t="btn_calc">Calculate</button>
+                <button type="button" class="zscu-btn zscu-btn-secondary" data-r="reset" data-t="btn_reset">Reset</button>
+            </div>
+
+            <section class="zscu-result-wrap" data-r="result-wrap" hidden>
+                <h3 class="zscu-rt" data-t="result_title">Your Result</h3>
+                <div data-r="result"></div>
+            </section>
+        </div>
+
+        <div class="zscu-modal-bg" data-r="modal-bg" aria-hidden="true">
+            <div class="zscu-modal" role="dialog" aria-modal="true">
+                <h4 data-r="modal-title"></h4>
+                <p data-r="modal-body"></p>
+                <div class="zscu-modal-actions"><button type="button" class="zscu-modal-close" data-r="modal-close" data-t="btn_close">Close</button></div>
             </div>
         </div>
-        
-        <!-- Step 2: Type Selection -->
-        <div class="zscu-step" data-step="2">
-            <h2 class="zscu-title" id="zscu-t2">What to calculate?</h2>
-            <p class="zscu-subtitle" id="zscu-s2">Select Zakat or Sadaqah</p>
-            
-            <div class="zscu-cards main-types" id="zscu-types">
-                <div class="zscu-card-main" data-type="zakat">
-                    <span class="icon">🕌</span>
-                    <div class="label" id="zscu-l-z">Zakat</div>
-                    <div class="desc" id="zscu-d-z">Obligatory</div>
-                </div>
-                <div class="zscu-card-main" data-type="sadaqah">
-                    <span class="icon">💚</span>
-                    <div class="label" id="zscu-l-s">Sadaqah</div>
-                    <div class="desc" id="zscu-d-s">Voluntary</div>
-                </div>
-            </div>
-            
-            <div id="zscu-subtypes"></div>
-        </div>
-        
-        <!-- Step 3: Details -->
-        <div class="zscu-step" data-step="3">
-            <h2 class="zscu-title" id="zscu-t3">Enter Details</h2>
-            <p class="zscu-subtitle" id="zscu-s3">Fill in the required information</p>
-            
-            <div id="zscu-form"></div>
-        </div>
-        
-        <!-- Step 4: Results -->
-        <div class="zscu-step" data-step="4">
-            <h2 class="zscu-title" id="zscu-t4">Your Results</h2>
-            <div id="zscu-result"></div>
-        </div>
-        
-        </div>
-        
-        <!-- Navigation -->
-        <div class="zscu-btns">
-            <button class="zscu-btn zscu-btn-secondary" id="zscu-btn-back" onclick="zscu.prev()" style="display:none">← Back</button>
-            <button class="zscu-btn zscu-btn-primary" id="zscu-btn-next" onclick="zscu.next()">Continue →</button>
-        </div>
-    </div>
-    
-    <script>
-    (function(){
-        // Translations
-        var t = {
-            en: {
-                s1_title: 'Select Language', s1_sub: 'Choose your preferred language',
-                s2_title: 'What to calculate?', s2_sub: 'Select Zakat or Sadaqah',
-                s3_title: 'Enter Details', s3_sub: 'Fill in the required information',
-                s4_title: 'Your Results',
-                zakat: 'Zakat', sadaqah: 'Sadaqah', z_desc: 'Obligatory', s_desc: 'Voluntary',
-                z_maal: 'Cash', z_income: 'Income', z_fitr: 'Zakat Fitr', z_rental: 'Rental',
-                z_invest: 'Invest', z_pension: 'Pension', z_jewelry: 'Jewelry', z_business: 'Business',
-                z_agri: 'Agriculture', z_livestock: 'Livestock',
-                s_general: 'General', s_orphan: 'Orphan Sponsorship', s_wells: 'Wells/Water', s_mosque: 'Mosque', s_meals: 'Meals for Poor', s_jariyah: 'Jariyah', s_education: 'Education', s_medical: 'Medical',
-                l_material: 'Material', l_beneficiary: 'Beneficiary', l_frequency: 'Frequency',
-                l_quantity: 'Quantity', l_amount: 'Amount',
-                l_gold_price: 'Gold $/g', l_silver_price: 'Silver $/g',
-                l_gold_weight: 'Gold (g)', l_silver_weight: 'Silver (g)', l_purity: 'Purity',
-                l_cash: 'Cash Amount', l_income: 'Monthly Income', l_expenses: 'Monthly Expenses',
-                l_rent: 'Annual Rent', l_portfolio: 'Portfolio', l_pension: 'Pension Value',
-                l_business: 'Business Value', l_produce: 'Produce', l_animals: 'Animals',
-                l_people: 'People', l_debts: 'Debts', l_project: 'Project',
-                l_students: 'Students', l_patients: 'Patients',
-                opt_gold: 'Gold', opt_silver: 'Silver', opt_cash: 'Cash',
-                opt_orphans: 'Orphans', opt_families: 'Families', opt_refugees: 'Refugees',
-                opt_poor: 'Poor', opt_students: 'Students', opt_patients: 'Patients',
-                opt_once: 'One-time', opt_monthly: 'Monthly', opt_quarterly: 'Quarterly',
-                tip_gold: 'Current market price per gram',
-                tip_silver: 'Current silver price per gram',
-                tip_debts: 'Deduct debts due within 12 months',
-                tip_purity: 'Karat: 24K=99.9%, 22K=91.6%, 18K=75%',
-                eligible: '✓ Eligible', not_eligible: '✗ Not Eligible',
-                zakat_due: 'Zakat Due', sadaqah_due: 'Suggested Sadaqah',
-                net: 'Net Wealth', nisab: 'Nisab', rate: 'Rate: 2.5%',
-                cta_title: 'Fulfill Your Obligation', cta_text: 'Complete your Zakat now',
-                cta_btn: 'Pay Zakat Now'
-            },
-            ar: {
-                s1_title: 'اختر اللغة', s1_sub: 'اختر لغتك',
-                s2_title: 'ماذا تريد حساب؟', s2_sub: 'زكاة أو صدقة',
-                s3_title: 'أدخل التفاصيل', s3_sub: 'املأ المعلومات',
-                s4_title: 'النتائج',
-                zakat: 'الزكاة', sadaqah: 'الصدقة',
-                z_maal: 'نقد', z_income: 'دخل', z_fitr: 'فطر', z_rental: 'إيجار',
-                z_invest: 'استثمار', z_pension: 'معاش', z_jewelry: 'مجوهرات', z_business: 'تجارة',
-                z_agri: 'زراعة', z_livestock: 'مواشي',
-                s_general: 'عام', s_jariyah: 'جارية', s_education: 'تعليم', s_medical: 'طبي',
-                l_material: 'المادة', l_beneficiary: 'المستفيد', l_frequency: 'التكرار',
-                eligible: '✓ واجب', not_eligible: '✗ غير واجب',
-                cta_btn: 'ادفع الآن'
-            }
-        };
-        
-        var zscu = {
-            step: 1,
-            lang: 'en',
-            type: '',
-            subtype: '',
-            data: {},
-            
-            init: function() {
-                var self = this;
-                
-                // Language search
-                document.getElementById('zscu-search').addEventListener('input', function(e) {
-                    var q = e.target.value.toLowerCase();
-                    document.querySelectorAll('.zscu-lang').forEach(function(l) {
-                        l.style.display = l.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
-                    });
-                });
-                
-                // Language selection
-                document.querySelectorAll('.zscu-lang').forEach(function(l) {
-                    l.addEventListener('click', function() {
-                        self.selectLang(this.dataset.lang, this.dataset.rtl === '1');
-                    });
-                });
-                
-                // Type selection
-                document.querySelectorAll('.zscu-card-main').forEach(function(c) {
-                    c.addEventListener('click', function() {
-                        self.selectType(this.dataset.type);
-                    });
-                });
-            },
-            
-            selectLang: function(langCode, isRtl) {
-                this.lang = langCode;
-                document.querySelectorAll('.zscu-lang').forEach(function(l) {
-                    l.classList.toggle('selected', l.dataset.lang === langCode);
-                });
-                document.getElementById('<?php echo esc_js($id); ?>').classList.toggle('zscu-rtl', isRtl);
-                this.updateText();
-            },
-            
-            updateText: function() {
-                var x = t[this.lang] || t.en;
-                var titles = {
-                    'zscu-t1': x.s1_title, 'zscu-s1': x.s1_sub,
-                    'zscu-t2': x.s2_title, 'zscu-s2': x.s2_sub,
-                    'zscu-t3': x.s3_title, 'zscu-s3': x.s3_sub,
-                    'zscu-t4': x.s4_title
-                };
-                for (var id in titles) {
-                    var el = document.getElementById(id);
-                    if (el) el.textContent = titles[id];
-                }
-                document.getElementById('zscu-l-z').textContent = x.zakat;
-                document.getElementById('zscu-d-z').textContent = x.z_desc || 'Obligatory';
-                document.getElementById('zscu-l-s').textContent = x.sadaqah;
-                document.getElementById('zscu-d-s').textContent = x.s_desc || 'Voluntary';
-            },
-            
-            selectType: function(type) {
-                this.type = type;
-                this.subtype = '';
-                
-                // Update main card selection
-                document.querySelectorAll('.zscu-card-main').forEach(function(c) {
-                    c.classList.toggle('selected', c.dataset.type === type);
-                });
-                
-                // Render subtypes with SMALL icons
-                this.renderSubtypes();
-            },
-            
-            renderSubtypes: function() {
-                var x = t[this.lang] || t.en;
-                var container = document.getElementById('zscu-subtypes');
-                var html = '<div class="zscu-cards sub-types">';
-                
-                if (this.type === 'zakat') {
-                    var items = [
-                        ['z_maal','💰',x.z_maal],['z_income','💼',x.z_income],['z_fitr','🌙',x.z_fitr],
-                        ['z_rental','🏠',x.z_rental],['z_invest','📈',x.z_invest],['z_pension','🎓',x.z_pension],
-                        ['z_jewelry','💍',x.z_jewelry],['z_business','🏪',x.z_business],['z_agri','🌾',x.z_agri],['z_livestock','🐄',x.z_livestock]
-                    ];
-                } else {
-                    var items = [
-                        ['s_general','💚',x.s_general],['s_orphan','👶',x.s_orphan],['s_wells','💧',x.s_wells],
-                        ['s_mosque','🕌',x.s_mosque],['s_meals','🍽️',x.s_meals],['s_education','📚',x.s_education],
-                        ['s_medical','🏥',x.s_medical]
-                    ];
-                }
-                
-                var self = this;
-                items.forEach(function(item) {
-                    html += '<div class="zscu-card-sub" data-subtype="'+item[0]+'">' +
-                            '<span class="icon">'+item[1]+'</span>' +
-                            '<div class="label">'+item[2]+'</div></div>';
-                });
-                
-                html += '</div>';
-                container.innerHTML = html;
-                
-                // Add click handlers
-                container.querySelectorAll('.zscu-card-sub').forEach(function(c) {
-                    c.addEventListener('click', function() {
-                        self.selectSubtype(this.dataset.subtype);
-                    });
-                });
-            },
-            
-            selectSubtype: function(subtype) {
-                this.subtype = subtype;
-                document.querySelectorAll('.zscu-card-sub').forEach(function(c) {
-                    c.classList.toggle('selected', c.dataset.subtype === subtype);
-                });
-                document.getElementById('zscu-btn-next').disabled = false;
-            },
-            
-            next: function() {
-                if (this.step < 4) {
-                    this.goTo(this.step + 1);
-                }
-            },
-            
-            prev: function() {
-                if (this.step > 1) {
-                    this.goTo(this.step - 1);
-                }
-            },
-            
-            goTo: function(stepNum) {
-                // Hide current
-                document.querySelectorAll('.zscu-step').forEach(function(s) {
-                    s.classList.remove('active');
-                });
-                
-                // Show new
-                document.querySelector('.zscu-step[data-step="'+stepNum+'"]').classList.add('active');
-                
-                // Update progress
-                var dots = document.querySelectorAll('.zscu-step-dot');
-                var lines = document.querySelectorAll('.zscu-step-line');
-                dots.forEach(function(d, i) {
-                    d.classList.remove('active', 'completed');
-                    if (i+1 === stepNum) d.classList.add('active');
-                    else if (i+1 < stepNum) d.classList.add('completed');
-                });
-                lines.forEach(function(l, i) {
-                    l.classList.toggle('completed', i < stepNum - 1);
-                });
-                
-                // Update buttons
-                document.getElementById('zscu-btn-back').style.display = stepNum > 1 ? 'block' : 'none';
-                document.getElementById('zscu-btn-next').textContent = stepNum === 3 ? '🧮 Calculate' : 'Continue →';
-                document.getElementById('zscu-btn-next').onclick = stepNum === 3 ? function(){zscu.calculate();} : function(){zscu.next();};
-                
-                this.step = stepNum;
-                
-                // Step 3: show form
-                if (stepNum === 3) this.renderForm();
-                // Step 4: show results (already done in calculate)
-            },
-            
-            renderForm: function() {
-                var x = t[this.lang] || t.en;
-                var container = document.getElementById('zscu-form');
-                var s = this.subtype;
-                var html = '';
-                
-                // Material for Jewelry/Maal
-                if (s === 'z_jewelry' || s === 'z_maal') {
-                    html += this.select('material', x.l_material, [
-                        {value:'',label:'-- Select --'},
-                        {value:'gold',label:x.opt_gold},
-                        {value:'silver',label:x.opt_silver},
-                        {value:'cash',label:x.opt_cash}
-                    ], x.tip_gold);
-                    html += '<div id="material-fields"></div>';
-                }
-                
-                // Sadaqah beneficiary/frequency
-                if (this.type === 'sadaqah') {
-                    html += this.select('beneficiary', x.l_beneficiary, [
-                        {value:'',label:'-- Select --'},
-                        {value:'orphans',label:x.opt_orphans},
-                        {value:'families',label:x.opt_families},
-                        {value:'refugees',label:x.opt_refugees},
-                        {value:'poor',label:x.opt_poor},
-                        {value:'students',label:x.opt_students},
-                        {value:'patients',label:x.opt_patients}
-                    ]);
-                    html += this.select('frequency', x.l_frequency, [
-                        {value:'once',label:x.opt_once},
-                        {value:'monthly',label:x.opt_monthly},
-                        {value:'quarterly',label:x.opt_quarterly}
-                    ]);
-                    html += this.input('quantity', x.l_quantity, 'number', '1', 'people');
-                    html += this.input('amount', x.l_amount, 'number', '', '$');
-                }
-                
-                // Specific fields
-                if (s === 'z_income') {
-                    html += this.input('income', x.l_income, 'number', '', '$/mo');
-                    html += this.input('expenses', x.l_expenses, 'number', '', '$/mo');
-                }
-                if (s === 'z_fitr' || s === 's_general') {
-                    html += this.input('people', x.l_people, 'number', '1', 'people');
-                }
-                if (s === 'z_rental') {
-                    html += this.input('rent', x.l_rent, 'number', '', '$/yr');
-                }
-                if (s === 'z_invest' || s === 'z_maal' || s === 'z_jewelry') {
-                    html += this.input('gold_price', x.l_gold_price, 'number', '', '$/g', x.tip_gold);
-                    html += this.input('silver_price', x.l_silver_price, 'number', '', '$/g', x.tip_silver);
-                }
-                if (s === 'z_business') {
-                    html += this.input('business', x.l_business, 'number', '', '$');
-                }
-                if (s === 'z_pension') {
-                    html += this.input('pension', x.l_pension, 'number', '', '$');
-                }
-                if (s === 'z_agri') {
-                    html += this.input('produce', x.l_produce, 'number', '', '$');
-                }
-                if (s === 'z_livestock') {
-                    html += this.input('animals', x.l_animals, 'number', '', 'animals');
-                }
-                if (s === 's_jariyah') {
-                    html += this.input('project', x.l_project, 'number', '', '$');
-                }
-                if (s === 's_education') {
-                    html += this.input('students', x.l_students, 'number', '', 'students');
-                    html += this.input('amount', x.l_amount, 'number', '', '$');
-                }
-                if (s === 's_medical') {
-                    html += this.input('patients', x.l_patients, 'number', '', 'patients');
-                    html += this.input('amount', x.l_amount, 'number', '', '$');
-                }
-                
-                // Debts for wealth types
-                if (['z_maal','z_invest','z_jewelry','z_business'].includes(s)) {
-                    html += this.input('debts', x.l_debts, 'number', '', '$', x.tip_debts);
-                }
-                
-                container.innerHTML = html;
-                
-                // Material change handler
-                var matSelect = container.querySelector('#material');
-                if (matSelect) {
-                    matSelect.addEventListener('change', function() {
-                        zscu.renderMaterialFields(this.value);
-                    });
-                }
-            },
-            
-            input: function(id, label, type, value, suffix, tooltip) {
-                var html = '<div class="zscu-form-group">';
-                html += '<label class="zscu-label">'+label;
-                if (tooltip) html += '<span class="zscu-help">?<span class="zscu-tooltip">'+tooltip+'</span></span>';
-                html += '</label>';
-                html += '<input type="'+type+'" class="zscu-input" id="'+id+'" value="'+value+'" placeholder="0">';
-                html += '</div>';
-                return html;
-            },
-            
-            select: function(id, label, options, tooltip) {
-                var html = '<div class="zscu-form-group">';
-                html += '<label class="zscu-label">'+label;
-                if (tooltip) html += '<span class="zscu-help">?<span class="zscu-tooltip">'+tooltip+'</span></span>';
-                html += '</label>';
-                html += '<div class="zscu-select-wrap">';
-                html += '<select class="zscu-select" id="'+id+'">';
-                options.forEach(function(opt) {
-                    html += '<option value="'+opt.value+'">'+opt.label+'</option>';
-                });
-                html += '</select></div></div>';
-                return html;
-            },
-            
-            renderMaterialFields: function(material) {
-                var x = t[this.lang] || t.en;
-                var container = document.getElementById('material-fields');
-                var html = '';
-                
-                if (material === 'gold') {
-                    html += this.input('gold_weight', x.l_gold_weight, 'number', '', 'g');
-                    html += this.select('purity', x.l_purity, [
-                        {value:'24',label:'24K'}, {value:'22',label:'22K'}, {value:'21',label:'21K'}, {value:'18',label:'18K'}
-                    ], x.tip_purity);
-                } else if (material === 'silver') {
-                    html += this.input('silver_weight', x.l_silver_weight, 'number', '', 'g');
-                } else if (material === 'cash') {
-                    html += this.input('cash', x.l_cash, 'number', '', '$');
-                }
-                
-                container.innerHTML = html;
-            },
-            
-            calculate: function() {
-                var x = t[this.lang] || t.en;
-                var s = this.subtype;
-                var result = { amount: 0, nisab: 0, net: 0, eligible: false, rows: [], isZakat: this.type === 'zakat' };
-                
-                var getVal = function(id) {
-                    var el = document.getElementById(id);
-                    return el ? parseFloat(el.value) || 0 : 0;
-                };
-                
-                // Calculate based on type
-                if (s === 'z_maal' || s === 'z_jewelry') {
-                    var mat = document.getElementById('material') ? document.getElementById('material').value : '';
-                    var gp = getVal('gold_price');
-                    var sp = getVal('silver_price');
-                    var wealth = 0;
-                    
-                    if (mat === 'gold') {
-                        var gw = getVal('gold_weight');
-                        var purity = getVal('purity') || 24;
-                        wealth = (gw * purity / 24) * gp;
-                        result.rows.push({l: x.l_gold_weight, v: gw+'g × '+purity+'K'});
-                    } else if (mat === 'silver') {
-                        var sw = getVal('silver_weight');
-                        wealth = sw * sp;
-                        result.rows.push({l: x.l_silver_weight, v: sw+'g'});
-                    } else if (mat === 'cash') {
-                        wealth = getVal('cash');
-                        result.rows.push({l: x.l_cash, v: '$'+wealth});
+
+        <script>
+            (function(){
+                var root=document.getElementById('<?php echo esc_js($id); ?>');
+                if(!root){return;}
+                var showCta=root.getAttribute('data-show-cta')==='1';
+                var initialMode=(root.getAttribute('data-default-mode')||'maal').toLowerCase();
+                if(['maal','fitr','fk'].indexOf(initialMode)===-1){initialMode='maal';}
+                var state={lang:'en',mode:'maal',last:null};
+
+                var t={
+                    en:{
+                        app_title:'Zakat Calculator',app_sub:'',
+                        please_select:'please select:',
+                        mode_maal:'Zakat al-Maal',mode_fitr:'Zakat al-Fitr',mode_fk:'Fidya / Kaffarah',
+                        maal_title:'Zakat al-Maal',fitr_title:'Zakat al-Fitr',fk_title:'Fidya / Kaffarah',
+                        maal_intro:"Zakat al-Maal is 2.5% (0.025) of total zakatable wealth after one lunar year (hawl), if it reaches nisab. You must reach either:\nGold nisab = 85 grams of gold\nSilver nisab = 595 grams of silver\nIn modern calculators, some scholars use silver nisab (it benefits the poor more), while others use gold nisab.",
+                        asset_cash:'Cash',asset_gold:'Gold',asset_silver:'Silver',cash_amount:'Cash amount (money)',gold_price:'Gold price per gram (money)',gold_weight:'Gold weight (grams)',silver_price:'Silver price per gram (money)',silver_weight:'Silver weight (grams)',
+                        nisab_label:'Nisab standard',nisab_gold:'Gold (85g)',nisab_silver:'Silver (595g)',
+                        fitr_intro:"Zakat al-Fitr is one sa'a (about 2.5-3 kg staple food or cash equivalent) per person, estimated in the US in 2026 at $10-$15 per person. If a family head pays before Eid prayer for a household of 5 people including children, the total expected Zakat al-Fitr contribution is $50-$75.",
+                        fitr_persons:'Number of persons',fitr_amount:'Average zakat per person (money)',
+                        fidya_label:'Fidya (sick/elderly)',kaffarah_label:'Kaffarah (Intentional fast-break)',
+                        fidya_intro:"Fidya is a day's meals (ta'am miskeen) estimated in the US in 2026 at about $12-$15 per day. If someone misses all 30 days of Ramadan, the expected Fidya contribution is about $360-$450.",
+                        kaffarah_intro:"Kaffarah is feeding 60 poor people (ta'am 60 miskeen). In US-based estimates for 2026, it is often around $300-$600 per day and should be completed before makeup fasts (qada).",
+                        missed_days:'Missed days',amount_day:'Estimated amount per day (money)',persons:'Number of persons',
+                        btn_calc:'Calculate',btn_reset:'Reset',btn_close:'Close',result_title:'Your Result',
+                        status_ok:'Eligible',status_bad:'Below Nisab',status_info:'Calculated',
+                        due_zakat:'Zakat due',due_fitr:'Zakat al-Fitr total',due_fidya:'Fidya total',due_kaffarah:'Kaffarah total',
+                        row_total:'Total wealth',row_nisab:'Nisab value',row_nisab_std:'Nisab standard',row_cash:'Cash value',row_gold:'Gold value',row_silver:'Silver value',row_mode:'Mode',row_amount_person:'Amount per person',row_amount_day:'Amount per day',
+                        summary:'Formula',std_gold:'Gold (85g)',std_silver:'Silver (595g)',nisab_na:'Not checked',
+                        e_asset:'Select at least one asset for Zakat al-Maal.',e_cash:'Enter a valid cash amount.',e_gold:'Enter valid gold price and gold weight.',e_silver:'Enter valid silver price and silver weight.',e_nisab_gold:'To use Gold nisab, select Gold and enter a valid gold price.',e_nisab_silver:'To use Silver nisab, select Silver and enter a valid silver price.',
+                        e_fp:'Enter a valid number of persons for Zakat al-Fitr.',e_fa:'Enter a valid average zakat amount per person.',e_fkm:'Select Fidya or Kaffarah.',e_fd:'Enter valid missed days.',e_fda:'Enter a valid estimated amount per day.',e_fkp:'Enter a valid number of persons.',
+                        h_fidya_t:'Fidya (sick/elderly)',h_fidya_b:'Fidya: Paid by elderly, chronically ill, pregnant/breastfeeding women unable to fast later; one meal per missed day.',
+                        h_kaff_t:'Kaffarah (Intentional fast-break)',h_kaff_b:'Kaffarah: Due for breaking a fast knowingly without valid reason (e.g., no travel/illness); must precede qada (makeup fasts) in sequence.',
+                        cta_maal:'Give Your Zakat to Feed Refugee Children in Need',cta_fitr:'Give Your Zakat al-Fitr to Feed Refugee Children in Need',cta_fidya:'Give Your Fidya to Feed Refugee Children in Need',cta_kaff:'Give Your Kaffarah to Feed Refugee Children in Need'
+                    },
+                    ar:{
+                        app_title:'حاسبة الزكاة',app_sub:'',please_select:'يرجى الاختيار:',
+                        mode_maal:'زكاة المال',mode_fitr:'زكاة الفطر',mode_fk:'الفدية / الكفارة',
+                        maal_title:'زكاة المال',fitr_title:'زكاة الفطر',fk_title:'الفدية / الكفارة',
+                        maal_intro:"زكاة المال هي 2.5% (0.025) من إجمالي المال الخاضع للزكاة بعد مرور حول قمري كامل، إذا بلغ النصاب. يجب أن يبلغ المال أحد النصابين:\nنصاب الذهب = 85 غراماً من الذهب\nنصاب الفضة = 595 غراماً من الفضة\nفي الحاسبات الحديثة، يعتمد بعض العلماء نصاب الفضة لأنه أنفع للفقراء، بينما يعتمد آخرون نصاب الذهب.",
+                        asset_cash:'نقد',asset_gold:'ذهب',asset_silver:'فضة',cash_amount:'المبلغ النقدي (مال)',gold_price:'سعر غرام الذهب (مال)',gold_weight:'وزن الذهب (غرام)',silver_price:'سعر غرام الفضة (مال)',silver_weight:'وزن الفضة (غرام)',
+                        nisab_label:'معيار النصاب',nisab_gold:'الذهب (85غ)',nisab_silver:'الفضة (595غ)',
+                        fitr_intro:"زكاة الفطر هي صاع واحد (حوالي 2.5-3 كغ من القوت أو ما يعادله نقداً) عن كل شخص، وتقدّر في الولايات المتحدة لعام 2026 بنحو 10-15 دولاراً للشخص. إذا دفع رب الأسرة قبل صلاة العيد عن أسرة من 5 أشخاص بمن فيهم الأطفال، فالمجموع المتوقع 50-75 دولاراً.",
+                        fitr_persons:'عدد الأشخاص',fitr_amount:'متوسط الزكاة لكل شخص (مال)',
+                        fidya_label:'الفدية (مريض/كبير سن)',kaffarah_label:'الكفارة (الإفطار المتعمد)',
+                        fidya_intro:"الفدية هي إطعام مسكين عن كل يوم، وتُقدّر في الولايات المتحدة لعام 2026 بنحو 12-15 دولاراً لليوم. ومن فاته صيام الشهر كاملاً (30 يوماً) فالمتوقع 360-450 دولاراً.",
+                        kaffarah_intro:"الكفارة هي إطعام 60 مسكيناً. وتقدَّر في الولايات المتحدة لعام 2026 غالباً بين 300-600 دولار لليوم، وتُقدَّم قبل قضاء الصوم.",
+                        missed_days:'الأيام الفائتة',amount_day:'المبلغ التقديري لكل يوم (مال)',persons:'عدد الأشخاص',
+                        btn_calc:'احسب',btn_reset:'إعادة ضبط',btn_close:'إغلاق',result_title:'النتيجة',
+                        status_ok:'مستحق',status_bad:'أقل من النصاب',status_info:'تم الحساب',
+                        due_zakat:'الزكاة المستحقة',due_fitr:'إجمالي زكاة الفطر',due_fidya:'إجمالي الفدية',due_kaffarah:'إجمالي الكفارة',
+                        row_total:'إجمالي المال',row_nisab:'قيمة النصاب',row_nisab_std:'معيار النصاب',row_cash:'القيمة النقدية',row_gold:'قيمة الذهب',row_silver:'قيمة الفضة',row_mode:'النوع',row_amount_person:'المبلغ لكل شخص',row_amount_day:'المبلغ لكل يوم',
+                        summary:'المعادلة',std_gold:'الذهب (85غ)',std_silver:'الفضة (595غ)',nisab_na:'لم يتم التحقق',
+                        e_asset:'يرجى اختيار أصل واحد على الأقل لزكاة المال.',e_cash:'أدخل مبلغاً نقدياً صحيحاً.',e_gold:'أدخل سعراً ووزناً صحيحين للذهب.',e_silver:'أدخل سعراً ووزناً صحيحين للفضة.',e_nisab_gold:'لاستخدام نصاب الذهب، اختر الذهب وأدخل سعر ذهب صحيحاً.',e_nisab_silver:'لاستخدام نصاب الفضة، اختر الفضة وأدخل سعر فضة صحيحاً.',
+                        e_fp:'أدخل عدداً صحيحاً للأشخاص في زكاة الفطر.',e_fa:'أدخل متوسط زكاة صحيحاً لكل شخص.',e_fkm:'اختر الفدية أو الكفارة.',e_fd:'أدخل عدد أيام فائتة صحيحاً.',e_fda:'أدخل مبلغاً يومياً صحيحاً.',e_fkp:'أدخل عدداً صحيحاً للأشخاص.',
+                        h_fidya_t:'الفدية (مريض/كبير سن)',h_fidya_b:'الفدية: على الكبير في السن أو المريض المزمن أو الحامل/المرضع إذا تعذر القضاء لاحقاً، وهي إطعام مسكين عن كل يوم.',
+                        h_kaff_t:'الكفارة (الإفطار المتعمد)',h_kaff_b:'الكفارة: تلزم من أفطر عمداً بلا عذر شرعي (مثل السفر أو المرض)، وتكون قبل قضاء الصيام بالترتيب.',
+                        cta_maal:'أخرج زكاتك لإطعام أطفال اللاجئين المحتاجين',cta_fitr:'أخرج زكاة الفطر لإطعام أطفال اللاجئين المحتاجين',cta_fidya:'أخرج فديتك لإطعام أطفال اللاجئين المحتاجين',cta_kaff:'أخرج كفارتك لإطعام أطفال اللاجئين المحتاجين'
+                    },
+                    ur:{
+                        app_title:'زکوٰۃ کیلکولیٹر',app_sub:'',please_select:'براہ کرم منتخب کریں:',
+                        mode_maal:'زکوٰۃ المال',mode_fitr:'زکوٰۃ الفطر',mode_fk:'فدیہ / کفارہ',
+                        maal_title:'زکوٰۃ المال',fitr_title:'زکوٰۃ الفطر',fk_title:'فدیہ / کفارہ',
+                        maal_intro:"زکوٰۃ المال کل قابلِ زکوٰۃ مال کا 2.5% (0.025) ہے، بشرطیکہ ایک قمری سال (حول) گزر چکا ہو اور مال نصاب کو پہنچ جائے۔ نصاب کے دو معیار ہیں:\nسونے کا نصاب = 85 گرام سونا\nچاندی کا نصاب = 595 گرام چاندی\nجدید کیلکولیٹرز میں بعض علماء چاندی کے نصاب کو ترجیح دیتے ہیں (فقراء کے لیے زیادہ فائدہ مند)، جبکہ بعض سونے کے نصاب کو اختیار کرتے ہیں۔",
+                        asset_cash:'نقدی',asset_gold:'سونا',asset_silver:'چاندی',cash_amount:'نقدی رقم (مال)',gold_price:'سونے کی قیمت فی گرام (مال)',gold_weight:'سونے کا وزن (گرام)',silver_price:'چاندی کی قیمت فی گرام (مال)',silver_weight:'چاندی کا وزن (گرام)',
+                        nisab_label:'نصاب کا معیار',nisab_gold:'سونا (85 گرام)',nisab_silver:'چاندی (595 گرام)',
+                        fitr_intro:"زکوٰۃ الفطر ہر فرد کے لیے ایک صاع (تقریباً 2.5-3 کلو بنیادی غذا یا اس کی نقد قیمت) ہے۔ امریکا میں 2026 کے اندازے کے مطابق فی فرد تقریباً $10-$15 ہے۔ اگر گھر کا سربراہ عید کی نماز سے پہلے 5 افراد (بچوں سمیت) کی طرف سے ادا کرے تو متوقع کل $50-$75 بنتا ہے۔",
+                        fitr_persons:'افراد کی تعداد',fitr_amount:'فی فرد اوسط زکوٰۃ (مال)',
+                        fidya_label:'فدیہ (بیمار/معمر)',kaffarah_label:'کفارہ (جان بوجھ کر روزہ توڑنا)',
+                        fidya_intro:"فدیہ ایک دن کے بدلے ایک مسکین کا کھانا ہے، جس کا امریکا 2026 میں اندازہ تقریباً $12-$15 فی دن ہے۔ اگر 30 دن پورے رہ جائیں تو متوقع فدیہ $360-$450 بنتا ہے۔",
+                        kaffarah_intro:"کفارہ 60 مسکینوں کو کھانا کھلانا ہے۔ امریکا 2026 کے اندازے کے مطابق یہ عموماً $300-$600 فی دن کے قریب ہوتا ہے، اور قضا روزوں سے پہلے ادا کیا جاتا ہے۔",
+                        missed_days:'چھوٹے ہوئے دن',amount_day:'فی دن تخمینی رقم (مال)',persons:'افراد کی تعداد',
+                        btn_calc:'حساب کریں',btn_reset:'ری سیٹ',btn_close:'بند کریں',result_title:'نتیجہ',
+                        status_ok:'لازمی',status_bad:'نصاب سے کم',status_info:'حساب مکمل',
+                        due_zakat:'واجب زکوٰۃ',due_fitr:'زکوٰۃ الفطر کل',due_fidya:'فدیہ کل',due_kaffarah:'کفارہ کل',
+                        row_total:'کل مال',row_nisab:'نصاب کی قیمت',row_nisab_std:'نصاب کا معیار',row_cash:'نقدی قیمت',row_gold:'سونے کی قیمت',row_silver:'چاندی کی قیمت',row_mode:'قسم',row_amount_person:'فی فرد رقم',row_amount_day:'فی دن رقم',
+                        summary:'فارمولا',std_gold:'سونا (85 گرام)',std_silver:'چاندی (595 گرام)',nisab_na:'چیک نہیں کیا گیا',
+                        e_asset:'زکوٰۃ المال کے لیے کم از کم ایک اثاثہ منتخب کریں۔',e_cash:'درست نقدی رقم درج کریں۔',e_gold:'سونے کی درست قیمت اور وزن درج کریں۔',e_silver:'چاندی کی درست قیمت اور وزن درج کریں۔',e_nisab_gold:'سونے کے نصاب کے لیے سونا منتخب کریں اور درست قیمت درج کریں۔',e_nisab_silver:'چاندی کے نصاب کے لیے چاندی منتخب کریں اور درست قیمت درج کریں۔',
+                        e_fp:'زکوٰۃ الفطر کے لیے افراد کی درست تعداد درج کریں۔',e_fa:'فی فرد زکوٰۃ کی درست اوسط رقم درج کریں۔',e_fkm:'فدیہ یا کفارہ منتخب کریں۔',e_fd:'چھوٹے ہوئے دن درست درج کریں۔',e_fda:'فی دن درست تخمینی رقم درج کریں۔',e_fkp:'افراد کی درست تعداد درج کریں۔',
+                        h_fidya_t:'فدیہ (بیمار/معمر)',h_fidya_b:'فدیہ: ایسے معمر، دائمی مریض، یا حاملہ/دودھ پلانے والی خواتین پر ہوتا ہے جو بعد میں روزہ نہیں رکھ سکتیں؛ ہر چھوٹے ہوئے دن کے بدلے ایک مسکین کا کھانا۔',
+                        h_kaff_t:'کفارہ (جان بوجھ کر روزہ توڑنا)',h_kaff_b:'کفارہ: بغیر شرعی عذر (مثلاً سفر یا بیماری) جان بوجھ کر روزہ توڑنے پر لازم ہوتا ہے؛ اور ترتیب سے قضا سے پہلے ادا کیا جاتا ہے۔',
+                        cta_maal:'اپنی زکوٰۃ سے ضرورت مند مہاجر بچوں کو کھانا فراہم کریں',cta_fitr:'اپنی زکوٰۃ الفطر سے ضرورت مند مہاجر بچوں کو کھانا فراہم کریں',cta_fidya:'اپنے فدیے سے ضرورت مند مہاجر بچوں کو کھانا فراہم کریں',cta_kaff:'اپنے کفارے سے ضرورت مند مہاجر بچوں کو کھانا فراہم کریں'
+                    },
+                    tr:{
+                        app_title:'Zekat Hesaplayici',app_sub:'',please_select:'lutfen secin:',
+                        mode_maal:'Zakat al-Maal',mode_fitr:'Zakat al-Fitr',mode_fk:'Fidya / Kaffarah',
+                        maal_title:'Zakat al-Maal',fitr_title:'Zakat al-Fitr',fk_title:'Fidya / Kaffarah',
+                        maal_intro:"Zakat al-Maal, nisaba ulasmasi halinde bir kameri yil (hawl) sonunda toplam zekata tabi malin %2.5 (0.025) oraninda verilir. Su iki nisabtan biri esas alinir:\nAltin nisabi = 85 gram altin\nGumus nisabi = 595 gram gumus\nModern hesaplayicilarda bazi alimler gumus nisabini (fakirlere daha faydali) tercih eder, digerleri altin nisabini tercih eder.",
+                        asset_cash:'Nakit',asset_gold:'Altin',asset_silver:'Gumus',cash_amount:'Nakit miktari (para)',gold_price:'Gram altin fiyati (para)',gold_weight:'Altin agirligi (gram)',silver_price:'Gram gumus fiyati (para)',silver_weight:'Gumus agirligi (gram)',
+                        nisab_label:'Nisab standardi',nisab_gold:'Altin (85g)',nisab_silver:'Gumus (595g)',
+                        fitr_intro:"Zakat al-Fitr kisi basi bir sa (yaklasik 2.5-3 kg temel gida veya nakit karsiligi) olarak verilir. ABD 2026 tahminine gore kisi basi $10-$15 civarindadir. Ev reisi, cocuklar dahil 5 kisilik hane icin bayram namazindan once odediginde toplam beklenen tutar $50-$75 olur.",
+                        fitr_persons:'Kisi sayisi',fitr_amount:'Kisi basi ortalama zekat (para)',
+                        fidya_label:'Fidya (hasta/yasli)',kaffarah_label:'Kaffarah (Kasti oruc bozma)',
+                        fidya_intro:"Fidya, her kacirilan gun icin bir yoksulun yemegi olarak verilir. ABD 2026 tahmini gunluk yaklasik $12-$15 tir. Ramazanin tamami kacirilirsa (30 gun) beklenen fidya toplamı $360-$450 olur.",
+                        kaffarah_intro:"Kaffarah, 60 yoksulu doyurmaktir. ABD 2026 tahminlerinde gunluk yaklasik $300-$600 araligindadir ve kaza oruclarindan once yerine getirilir.",
+                        missed_days:'Kacirilan gun',amount_day:'Gunluk tahmini tutar (para)',persons:'Kisi sayisi',
+                        btn_calc:'Hesapla',btn_reset:'Sifirla',btn_close:'Kapat',result_title:'Sonuc',
+                        status_ok:'Uygun',status_bad:'Nisabin altinda',status_info:'Hesaplandi',
+                        due_zakat:'Odenecek zekat',due_fitr:'Zakat al-Fitr toplami',due_fidya:'Fidya toplami',due_kaffarah:'Kaffarah toplami',
+                        row_total:'Toplam mal',row_nisab:'Nisab degeri',row_nisab_std:'Nisab standardi',row_cash:'Nakit degeri',row_gold:'Altin degeri',row_silver:'Gumus degeri',row_mode:'Tur',row_amount_person:'Kisi basi tutar',row_amount_day:'Gunluk tutar',
+                        summary:'Formul',std_gold:'Altin (85g)',std_silver:'Gumus (595g)',nisab_na:'Kontrol edilmedi',
+                        e_asset:'Zakat al-Maal icin en az bir varlik secin.',e_cash:'Gecerli bir nakit miktari girin.',e_gold:'Gecerli altin fiyati ve agirligi girin.',e_silver:'Gecerli gumus fiyati ve agirligi girin.',e_nisab_gold:'Altin nisabi icin Altin secin ve gecerli altin fiyati girin.',e_nisab_silver:'Gumus nisabi icin Gumus secin ve gecerli gumus fiyati girin.',
+                        e_fp:'Zakat al-Fitr icin gecerli kisi sayisi girin.',e_fa:'Kisi basi gecerli ortalama zekat girin.',e_fkm:'Fidya veya Kaffarah secin.',e_fd:'Gecerli kacirilan gun sayisi girin.',e_fda:'Gecerli gunluk tahmini tutar girin.',e_fkp:'Gecerli kisi sayisi girin.',
+                        h_fidya_t:'Fidya (hasta/yasli)',h_fidya_b:'Fidya: Yasli, kronik hasta, hamile veya emziren ve sonradan orucu telafi edemeyen kisiler icin her kacirilan gun basina bir ogun.',
+                        h_kaff_t:'Kaffarah (Kasti oruc bozma)',h_kaff_b:'Kaffarah: Gecerli mazeret olmadan (or. yolculuk/hastalik yokken) bilerek orucu bozma durumunda gerekir; siralamada kaza once degil, kaffarah once yerine getirilir.',
+                        cta_maal:'Zekatiniz ile Ihtiyac Sahibi Multeci Cocuklara Yemek Ulastirin',cta_fitr:'Zakat al-Fitr ile Ihtiyac Sahibi Multeci Cocuklara Yemek Ulastirin',cta_fidya:'Fidyaniz ile Ihtiyac Sahibi Multeci Cocuklara Yemek Ulastirin',cta_kaff:'Kaffarah ile Ihtiyac Sahibi Multeci Cocuklara Yemek Ulastirin'
+                    },
+                    id:{
+                        app_title:'Kalkulator Zakat',app_sub:'',please_select:'silakan pilih:',
+                        mode_maal:'Zakat al-Maal',mode_fitr:'Zakat al-Fitr',mode_fk:'Fidya / Kaffarah',
+                        maal_title:'Zakat al-Maal',fitr_title:'Zakat al-Fitr',fk_title:'Fidya / Kaffarah',
+                        maal_intro:"Zakat al-Maal adalah 2,5% (0,025) dari total harta wajib zakat setelah satu tahun hijriah (hawl), jika mencapai nisab. Anda harus mencapai salah satu:\nNisab emas = 85 gram emas\nNisab perak = 595 gram perak\nPada kalkulator modern, sebagian ulama memakai nisab perak (lebih bermanfaat bagi fakir), sementara yang lain memakai nisab emas.",
+                        asset_cash:'Tunai',asset_gold:'Emas',asset_silver:'Perak',cash_amount:'Jumlah tunai (uang)',gold_price:'Harga emas per gram (uang)',gold_weight:'Berat emas (gram)',silver_price:'Harga perak per gram (uang)',silver_weight:'Berat perak (gram)',
+                        nisab_label:'Standar nisab',nisab_gold:'Emas (85g)',nisab_silver:'Perak (595g)',
+                        fitr_intro:"Zakat al-Fitr adalah satu sha (sekitar 2,5-3 kg makanan pokok atau nilai tunai) per orang. Perkiraan di AS tahun 2026 sekitar $10-$15 per orang. Jika kepala keluarga membayar sebelum salat Id untuk 5 orang termasuk anak, total perkiraan kontribusi adalah $50-$75.",
+                        fitr_persons:'Jumlah orang',fitr_amount:'Rata-rata zakat per orang (uang)',
+                        fidya_label:'Fidya (sakit/lansia)',kaffarah_label:'Kaffarah (Sengaja membatalkan puasa)',
+                        fidya_intro:"Fidya adalah memberi makan satu miskin per hari puasa yang terlewat. Perkiraan di AS tahun 2026 sekitar $12-$15 per hari. Jika 30 hari terlewat, total fidya yang diperkirakan adalah $360-$450.",
+                        kaffarah_intro:"Kaffarah adalah memberi makan 60 orang miskin. Dalam estimasi AS tahun 2026, umumnya sekitar $300-$600 per hari dan harus ditunaikan sebelum qada puasa.",
+                        missed_days:'Hari terlewat',amount_day:'Perkiraan jumlah per hari (uang)',persons:'Jumlah orang',
+                        btn_calc:'Hitung',btn_reset:'Reset',btn_close:'Tutup',result_title:'Hasil Anda',
+                        status_ok:'Memenuhi',status_bad:'Di bawah nisab',status_info:'Sudah dihitung',
+                        due_zakat:'Zakat wajib',due_fitr:'Total Zakat al-Fitr',due_fidya:'Total Fidya',due_kaffarah:'Total Kaffarah',
+                        row_total:'Total harta',row_nisab:'Nilai nisab',row_nisab_std:'Standar nisab',row_cash:'Nilai tunai',row_gold:'Nilai emas',row_silver:'Nilai perak',row_mode:'Mode',row_amount_person:'Jumlah per orang',row_amount_day:'Jumlah per hari',
+                        summary:'Rumus',std_gold:'Emas (85g)',std_silver:'Perak (595g)',nisab_na:'Belum diperiksa',
+                        e_asset:'Pilih minimal satu aset untuk Zakat al-Maal.',e_cash:'Masukkan jumlah tunai yang valid.',e_gold:'Masukkan harga dan berat emas yang valid.',e_silver:'Masukkan harga dan berat perak yang valid.',e_nisab_gold:'Untuk standar emas, pilih Emas dan isi harga emas yang valid.',e_nisab_silver:'Untuk standar perak, pilih Perak dan isi harga perak yang valid.',
+                        e_fp:'Masukkan jumlah orang yang valid untuk Zakat al-Fitr.',e_fa:'Masukkan rata-rata zakat per orang yang valid.',e_fkm:'Pilih Fidya atau Kaffarah.',e_fd:'Masukkan jumlah hari terlewat yang valid.',e_fda:'Masukkan perkiraan jumlah per hari yang valid.',e_fkp:'Masukkan jumlah orang yang valid.',
+                        h_fidya_t:'Fidya (sakit/lansia)',h_fidya_b:'Fidya: Dibayar oleh lansia, sakit kronis, ibu hamil/menyusui yang tidak mampu mengganti puasa; satu porsi makan untuk setiap hari terlewat.',
+                        h_kaff_t:'Kaffarah (Sengaja membatalkan puasa)',h_kaff_b:'Kaffarah: Wajib bagi yang sengaja membatalkan puasa tanpa alasan syari (misalnya bukan safar/sakit); ditunaikan sebelum qada secara urut.',
+                        cta_maal:'Salurkan Zakat Anda untuk Memberi Makan Anak Pengungsi yang Membutuhkan',cta_fitr:'Salurkan Zakat al-Fitr Anda untuk Memberi Makan Anak Pengungsi yang Membutuhkan',cta_fidya:'Salurkan Fidya Anda untuk Memberi Makan Anak Pengungsi yang Membutuhkan',cta_kaff:'Salurkan Kaffarah Anda untuk Memberi Makan Anak Pengungsi yang Membutuhkan'
+                    },
+                    de:{
+                        app_title:'Zakat-Rechner',app_sub:'',please_select:'bitte auswaehlen:',
+                        mode_maal:'Zakat al-Maal',mode_fitr:'Zakat al-Fitr',mode_fk:'Fidya / Kaffarah',
+                        maal_title:'Zakat al-Maal',fitr_title:'Zakat al-Fitr',fk_title:'Fidya / Kaffarah',
+                        maal_intro:"Zakat al-Maal betraegt 2,5% (0,025) des gesamten zakatpflichtigen Vermoegens nach einem Mondjahr (hawl), sofern der Nisab erreicht wird. Es gilt einer der folgenden Werte:\nGold-Nisab = 85 Gramm Gold\nSilber-Nisab = 595 Gramm Silber\nIn modernen Rechnern verwenden einige Gelehrte den Silber-Nisab (guenstiger fuer Arme), andere den Gold-Nisab.",
+                        asset_cash:'Bargeld',asset_gold:'Gold',asset_silver:'Silber',cash_amount:'Bargeldbetrag (Geld)',gold_price:'Goldpreis pro Gramm (Geld)',gold_weight:'Goldgewicht (Gramm)',silver_price:'Silberpreis pro Gramm (Geld)',silver_weight:'Silbergewicht (Gramm)',
+                        nisab_label:'Nisab-Standard',nisab_gold:'Gold (85g)',nisab_silver:'Silber (595g)',
+                        fitr_intro:"Zakat al-Fitr entspricht einer Sa (ca. 2,5-3 kg Grundnahrungsmittel oder Geldwert) pro Person. In den USA wird sie 2026 auf etwa $10-$15 pro Person geschaetzt. Zahlt ein Familienoberhaupt vor dem Eid-Gebet fuer 5 Personen inklusive Kinder, liegt der erwartete Gesamtbetrag bei $50-$75.",
+                        fitr_persons:'Anzahl Personen',fitr_amount:'Durchschnitt pro Person (Geld)',
+                        fidya_label:'Fidya (krank/aelter)',kaffarah_label:'Kaffarah (Absichtliches Fastenbrechen)',
+                        fidya_intro:"Fidya bedeutet eine Mahlzeit fuer eine beduerftige Person pro versaeumtem Fastentag. US-Schaetzung fuer 2026: etwa $12-$15 pro Tag. Bei 30 versaeumten Tagen liegt der erwartete Gesamtbetrag bei $360-$450.",
+                        kaffarah_intro:"Kaffarah bedeutet, 60 beduerftige Personen zu speisen. In den US-Schaetzungen fuer 2026 liegt es haeufig bei etwa $300-$600 pro Tag und wird vor den Nachholfasten (qada) erfuellt.",
+                        missed_days:'Versaeumte Tage',amount_day:'Geschaetzter Betrag pro Tag (Geld)',persons:'Anzahl Personen',
+                        btn_calc:'Berechnen',btn_reset:'Zuruecksetzen',btn_close:'Schliessen',result_title:'Ihr Ergebnis',
+                        status_ok:'Pflichtig',status_bad:'Unter Nisab',status_info:'Berechnet',
+                        due_zakat:'Faellige Zakat',due_fitr:'Zakat al-Fitr gesamt',due_fidya:'Fidya gesamt',due_kaffarah:'Kaffarah gesamt',
+                        row_total:'Gesamtvermoegen',row_nisab:'Nisab-Wert',row_nisab_std:'Nisab-Standard',row_cash:'Bargeldwert',row_gold:'Goldwert',row_silver:'Silberwert',row_mode:'Modus',row_amount_person:'Betrag pro Person',row_amount_day:'Betrag pro Tag',
+                        summary:'Formel',std_gold:'Gold (85g)',std_silver:'Silber (595g)',nisab_na:'Nicht geprueft',
+                        e_asset:'Waehlen Sie mindestens eine Vermoegensart fuer Zakat al-Maal.',e_cash:'Geben Sie einen gueltigen Bargeldbetrag ein.',e_gold:'Geben Sie gueltigen Goldpreis und gueltiges Goldgewicht ein.',e_silver:'Geben Sie gueltigen Silberpreis und gueltiges Silbergewicht ein.',e_nisab_gold:'Fuer Gold-Nisab bitte Gold waehlen und gueltigen Goldpreis eingeben.',e_nisab_silver:'Fuer Silber-Nisab bitte Silber waehlen und gueltigen Silberpreis eingeben.',
+                        e_fp:'Geben Sie eine gueltige Personenzahl fuer Zakat al-Fitr ein.',e_fa:'Geben Sie einen gueltigen Durchschnittsbetrag pro Person ein.',e_fkm:'Waehlen Sie Fidya oder Kaffarah.',e_fd:'Geben Sie gueltige versaeumte Tage ein.',e_fda:'Geben Sie einen gueltigen Tagesbetrag ein.',e_fkp:'Geben Sie eine gueltige Personenzahl ein.',
+                        h_fidya_t:'Fidya (krank/aelter)',h_fidya_b:'Fidya: Fuer aeltere Menschen, chronisch Kranke sowie schwangere/stillende Frauen, die spaeter nicht nachfasten koennen; eine Mahlzeit pro versaeumtem Tag.',
+                        h_kaff_t:'Kaffarah (Absichtliches Fastenbrechen)',h_kaff_b:'Kaffarah: Faellig bei bewusstem Fastenbrechen ohne gueltigen Grund (z. B. keine Reise/Krankheit); in der Reihenfolge vor qada zu leisten.',
+                        cta_maal:'Geben Sie Ihre Zakat, um beduerftige Flüchtlingskinder zu ernaehren',cta_fitr:'Geben Sie Ihre Zakat al-Fitr, um beduerftige Flüchtlingskinder zu ernaehren',cta_fidya:'Geben Sie Ihre Fidya, um beduerftige Flüchtlingskinder zu ernaehren',cta_kaff:'Geben Sie Ihre Kaffarah, um beduerftige Flüchtlingskinder zu ernaehren'
+                    },
+                    es:{
+                        app_title:'Calculadora de Zakat',app_sub:'',please_select:'por favor seleccione:',
+                        mode_maal:'Zakat al-Maal',mode_fitr:'Zakat al-Fitr',mode_fk:'Fidya / Kaffarah',
+                        maal_title:'Zakat al-Maal',fitr_title:'Zakat al-Fitr',fk_title:'Fidya / Kaffarah',
+                        maal_intro:"Zakat al-Maal es el 2,5% (0,025) de la riqueza total sujeta a zakat tras un ano lunar (hawl), si alcanza el nisab. Debe alcanzar uno de estos:\nNisab de oro = 85 gramos de oro\nNisab de plata = 595 gramos de plata\nEn calculadoras modernas, algunos eruditos usan nisab de plata (beneficia mas a los pobres) y otros usan nisab de oro.",
+                        asset_cash:'Efectivo',asset_gold:'Oro',asset_silver:'Plata',cash_amount:'Cantidad en efectivo (dinero)',gold_price:'Precio del oro por gramo (dinero)',gold_weight:'Peso del oro (gramos)',silver_price:'Precio de la plata por gramo (dinero)',silver_weight:'Peso de la plata (gramos)',
+                        nisab_label:'Estandar de nisab',nisab_gold:'Oro (85g)',nisab_silver:'Plata (595g)',
+                        fitr_intro:"Zakat al-Fitr es un sa (aprox. 2,5-3 kg de alimento basico o equivalente en efectivo) por persona. En EE. UU. para 2026 se estima en $10-$15 por persona. Si el jefe de familia paga antes de la oracion del Eid por un hogar de 5 personas incluyendo ninos, el total estimado es $50-$75.",
+                        fitr_persons:'Numero de personas',fitr_amount:'Promedio por persona (dinero)',
+                        fidya_label:'Fidya (enfermo/anciano)',kaffarah_label:'Kaffarah (Romper el ayuno intencionalmente)',
+                        fidya_intro:"Fidya es alimentar a una persona necesitada por cada dia de ayuno perdido. En EE. UU. para 2026 se estima en $12-$15 por dia. Si se pierden 30 dias, el total esperado es $360-$450.",
+                        kaffarah_intro:"Kaffarah es alimentar a 60 personas pobres. En estimaciones de EE. UU. para 2026 suele estar entre $300-$600 por dia y debe cumplirse antes del qada (ayunos de reposicion).",
+                        missed_days:'Dias perdidos',amount_day:'Monto estimado por dia (dinero)',persons:'Numero de personas',
+                        btn_calc:'Calcular',btn_reset:'Restablecer',btn_close:'Cerrar',result_title:'Su resultado',
+                        status_ok:'Corresponde',status_bad:'Por debajo del nisab',status_info:'Calculado',
+                        due_zakat:'Zakat debida',due_fitr:'Total Zakat al-Fitr',due_fidya:'Total Fidya',due_kaffarah:'Total Kaffarah',
+                        row_total:'Riqueza total',row_nisab:'Valor del nisab',row_nisab_std:'Estandar de nisab',row_cash:'Valor en efectivo',row_gold:'Valor del oro',row_silver:'Valor de la plata',row_mode:'Modo',row_amount_person:'Monto por persona',row_amount_day:'Monto por dia',
+                        summary:'Formula',std_gold:'Oro (85g)',std_silver:'Plata (595g)',nisab_na:'No verificado',
+                        e_asset:'Seleccione al menos un activo para Zakat al-Maal.',e_cash:'Ingrese una cantidad de efectivo valida.',e_gold:'Ingrese precio y peso de oro validos.',e_silver:'Ingrese precio y peso de plata validos.',e_nisab_gold:'Para usar nisab de oro, seleccione Oro e ingrese un precio valido.',e_nisab_silver:'Para usar nisab de plata, seleccione Plata e ingrese un precio valido.',
+                        e_fp:'Ingrese un numero valido de personas para Zakat al-Fitr.',e_fa:'Ingrese un promedio valido por persona.',e_fkm:'Seleccione Fidya o Kaffarah.',e_fd:'Ingrese dias perdidos validos.',e_fda:'Ingrese un monto diario estimado valido.',e_fkp:'Ingrese un numero valido de personas.',
+                        h_fidya_t:'Fidya (enfermo/anciano)',h_fidya_b:'Fidya: La pagan ancianos, enfermos cronicos o mujeres embarazadas/lactantes que no pueden recuperar el ayuno despues; una comida por cada dia perdido.',
+                        h_kaff_t:'Kaffarah (Romper el ayuno intencionalmente)',h_kaff_b:'Kaffarah: Corresponde por romper el ayuno conscientemente sin motivo valido (por ejemplo, sin viaje/enfermedad); debe realizarse antes del qada en secuencia.',
+                        cta_maal:'Entregue su Zakat para alimentar a ninos refugiados necesitados',cta_fitr:'Entregue su Zakat al-Fitr para alimentar a ninos refugiados necesitados',cta_fidya:'Entregue su Fidya para alimentar a ninos refugiados necesitados',cta_kaff:'Entregue su Kaffarah para alimentar a ninos refugiados necesitados'
+                    },
+                    fr:{
+                        app_title:'Calculateur de Zakat',app_sub:'',please_select:'veuillez selectionner :',
+                        mode_maal:'Zakat al-Maal',mode_fitr:'Zakat al-Fitr',mode_fk:'Fidya / Kaffarah',
+                        maal_title:'Zakat al-Maal',fitr_title:'Zakat al-Fitr',fk_title:'Fidya / Kaffarah',
+                        maal_intro:"La Zakat al-Maal est de 2,5 % (0,025) du patrimoine total soumis a la zakat apres une annee lunaire (hawl), si le nisab est atteint. Vous devez atteindre au moins un des deux seuils :\nNisab or = 85 grammes d or\nNisab argent = 595 grammes d argent\nDans les calculateurs modernes, certains savants utilisent le nisab argent (plus favorable aux pauvres), d autres utilisent le nisab or.",
+                        asset_cash:'Especes',asset_gold:'Or',asset_silver:'Argent',cash_amount:'Montant en especes (argent)',gold_price:'Prix de l or par gramme (argent)',gold_weight:'Poids de l or (grammes)',silver_price:'Prix de l argent par gramme (argent)',silver_weight:'Poids de l argent (grammes)',
+                        nisab_label:'Standard du nisab',nisab_gold:'Or (85g)',nisab_silver:'Argent (595g)',
+                        fitr_intro:"La Zakat al-Fitr correspond a un sa (environ 2,5-3 kg de nourriture de base ou son equivalent en argent) par personne. Aux Etats-Unis en 2026, elle est estimee a $10-$15 par personne. Si le chef de famille paie avant la priere de l Eid pour un foyer de 5 personnes incluant les enfants, le total estime est de $50-$75.",
+                        fitr_persons:'Nombre de personnes',fitr_amount:'Montant moyen par personne (argent)',
+                        fidya_label:'Fidya (malade/age)',kaffarah_label:'Kaffarah (Rupture intentionnelle du jeune)',
+                        fidya_intro:"La Fidya consiste a nourrir une personne pauvre pour chaque jour manque. Aux Etats-Unis en 2026, elle est estimee a $12-$15 par jour. Si 30 jours sont manques, le total attendu est de $360-$450.",
+                        kaffarah_intro:"La Kaffarah consiste a nourrir 60 personnes pauvres. Dans les estimations americaines de 2026, elle est souvent autour de $300-$600 par jour et doit etre accomplie avant les jours de rattrapage (qada).",
+                        missed_days:'Jours manques',amount_day:'Montant estime par jour (argent)',persons:'Nombre de personnes',
+                        btn_calc:'Calculer',btn_reset:'Reinitialiser',btn_close:'Fermer',result_title:'Votre resultat',
+                        status_ok:'Eligible',status_bad:'Sous le nisab',status_info:'Calcule',
+                        due_zakat:'Zakat due',due_fitr:'Total Zakat al-Fitr',due_fidya:'Total Fidya',due_kaffarah:'Total Kaffarah',
+                        row_total:'Patrimoine total',row_nisab:'Valeur du nisab',row_nisab_std:'Standard du nisab',row_cash:'Valeur en especes',row_gold:'Valeur de l or',row_silver:'Valeur de l argent',row_mode:'Mode',row_amount_person:'Montant par personne',row_amount_day:'Montant par jour',
+                        summary:'Formule',std_gold:'Or (85g)',std_silver:'Argent (595g)',nisab_na:'Non verifie',
+                        e_asset:'Selectionnez au moins un actif pour la Zakat al-Maal.',e_cash:'Entrez un montant en especes valide.',e_gold:'Entrez un prix et un poids de l or valides.',e_silver:'Entrez un prix et un poids de l argent valides.',e_nisab_gold:'Pour utiliser le nisab or, selectionnez Or et entrez un prix valide.',e_nisab_silver:'Pour utiliser le nisab argent, selectionnez Argent et entrez un prix valide.',
+                        e_fp:'Entrez un nombre de personnes valide pour la Zakat al-Fitr.',e_fa:'Entrez un montant moyen valide par personne.',e_fkm:'Selectionnez Fidya ou Kaffarah.',e_fd:'Entrez un nombre de jours manques valide.',e_fda:'Entrez un montant journalier estime valide.',e_fkp:'Entrez un nombre de personnes valide.',
+                        h_fidya_t:'Fidya (malade/age)',h_fidya_b:'Fidya : due par les personnes agees, malades chroniques ou femmes enceintes/allaitantes ne pouvant pas rattraper le jeune; un repas par jour manque.',
+                        h_kaff_t:'Kaffarah (Rupture intentionnelle du jeune)',h_kaff_b:'Kaffarah : due en cas de rupture volontaire du jeune sans raison valable (par ex. pas de voyage/maladie); doit preceder le qada dans l ordre.',
+                        cta_maal:'Donnez votre Zakat pour nourrir des enfants refugies dans le besoin',cta_fitr:'Donnez votre Zakat al-Fitr pour nourrir des enfants refugies dans le besoin',cta_fidya:'Donnez votre Fidya pour nourrir des enfants refugies dans le besoin',cta_kaff:'Donnez votre Kaffarah pour nourrir des enfants refugies dans le besoin'
                     }
-                    
-                    var debts = getVal('debts');
-                    result.nisab = Math.min(85*gp, 595*sp);
-                    result.net = Math.max(0, wealth - debts);
-                    result.eligible = result.net >= result.nisab && result.nisab > 0;
-                    result.amount = result.eligible ? result.net * 0.025 : 0;
-                    
-                    if (debts > 0) result.rows.push({l: x.l_debts, v: '$'+debts, d: true});
-                    result.rows.push({l: x.net, v: '$'+result.net.toFixed(2)});
+                };
+
+                function tr(k){var p=t[state.lang]||{};return Object.prototype.hasOwnProperty.call(p,k)?p[k]:(t.en[k]||k);}    
+                function qs(s){return root.querySelector(s);} function qsa(s){return Array.prototype.slice.call(root.querySelectorAll(s));}
+                function f(n){return qs('[data-f="'+n+'"]');}
+                function n(nm){var e=f(nm);if(!e){return 0;}var v=parseFloat(e.value);return !isFinite(v)||v<0?0:v;}
+                function i(nm){var v=Math.floor(n(nm));return v<0?0:v;}
+                function money(v){return Number(v).toFixed(2);}    
+                function noCurrency(v){return String(v).replace(/\$/g,'').trim();}
+                function txt(){qsa('[data-t]').forEach(function(el){var k=el.getAttribute('data-t');if(el.tagName==='OPTION'){el.textContent=tr(k);}else{el.textContent=tr(k);}});}    
+                function setLang(code,flag,shortCode,isRtl){state.lang=code;qs('[data-r="lang-flag"]').textContent=flag;qs('[data-r="lang-code"]').textContent=shortCode;root.classList.toggle('zscu-rtl',isRtl);txt();toggleFkInfo();if(state.last){render(state.last);}}
+                function softScroll(el){
+                    if(!el){return;}
+                    var box=qs('.zscu-content');
+                    if(!box){return;}
+                    var target=Math.max(0,el.offsetTop-8);
+                    var start=box.scrollTop;
+                    var delta=target-start;
+                    if(Math.abs(delta)<2){return;}
+                    var duration=1600;
+                    var t0=null;
+                    function ease(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+                    function step(ts){
+                        if(t0===null){t0=ts;}
+                        var p=Math.min((ts-t0)/duration,1);
+                        box.scrollTop=start+(delta*ease(p));
+                        if(p<1){requestAnimationFrame(step);}
+                    }
+                    requestAnimationFrame(step);
                 }
-                else if (s === 'z_income') {
-                    var income = getVal('income');
-                    var exp = getVal('expenses');
-                    result.net = (income - exp) * 12;
-                    result.amount = Math.max(0, result.net) * 0.025;
-                    result.eligible = result.amount > 0;
-                    result.rows.push({l: x.l_income, v: '$'+income+'/mo'});
-                    if (exp > 0) result.rows.push({l: x.l_expenses, v: '$'+exp+'/mo', d: true});
+                function setMode(m,skipScroll){state.mode=m;qsa('.zscu-mode').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-mode')===m);});qsa('.zscu-panel').forEach(function(p){p.classList.toggle('active',p.getAttribute('data-panel')===m);});clearErr();updateSubmit();if(!skipScroll){softScroll(qs('[data-panel=\"'+m+'\"]'));}}
+                function err(msg){var e=qs('[data-r="err"]');e.hidden=false;e.textContent=msg;}
+                function clearErr(){var e=qs('[data-r="err"]');e.hidden=true;e.textContent='';}
+                function clearFieldErrors(){qsa('.zscu-input-error').forEach(function(el){el.classList.remove('zscu-input-error');});qsa('.zscu-select-error').forEach(function(el){el.classList.remove('zscu-select-error');});qsa('.zscu-check-error').forEach(function(el){el.classList.remove('zscu-check-error');});qsa('.zscu-choice-error').forEach(function(el){el.classList.remove('zscu-choice-error');});}
+                function fkMode(){var m=qs('input[data-f="fkm"]:checked');return m?m.value:'';}
+                function toggleAssets(){var cash=qs('[data-sec=\"cash\"]'),gold=qs('[data-sec=\"gold\"]'),silver=qs('[data-sec=\"silver\"]');var showCash=f('asset_cash').checked,showGold=f('asset_gold').checked,showSilver=f('asset_silver').checked;var reveal=null;if(showCash&&cash.style.display==='none'){reveal=cash;}if(showGold&&gold.style.display==='none'){reveal=gold;}if(showSilver&&silver.style.display==='none'){reveal=silver;}cash.style.display=showCash?'block':'none';gold.style.display=showGold?'grid':'none';silver.style.display=showSilver?'grid':'none';if(reveal){softScroll(reveal);}}
+                function toggleFkInfo(){var m=fkMode();var fid=qs('[data-info=\"fidya\"]'),kaf=qs('[data-info=\"kaffarah\"]');fid.style.display=m==='fidya'?'block':'none';kaf.style.display=m==='kaffarah'?'block':'none';if(m==='fidya'){softScroll(fid);}if(m==='kaffarah'){softScroll(kaf);}}
+                function valid(silent){
+                    var e='';
+                    var firstBad=null;
+                    function mark(el, cls){if(silent||!el){return;}el.classList.add(cls);if(!firstBad){firstBad=el;}}
+                    if(!silent){clearFieldErrors();}
+                    if(state.mode==='maal'){
+                        var hasC=f('asset_cash').checked,hasG=f('asset_gold').checked,hasS=f('asset_silver').checked;
+                        if(!hasC&&!hasG&&!hasS){e='e_asset';qsa('.zscu-check').forEach(function(c){mark(c,'zscu-check-error');});}
+                        else if(hasC&&n('cash')<=0){e='e_cash';mark(f('cash'),'zscu-input-error');}
+                        else if(hasG&&(n('gp')<=0||n('gw')<=0)){e='e_gold';if(n('gp')<=0){mark(f('gp'),'zscu-input-error');}if(n('gw')<=0){mark(f('gw'),'zscu-input-error');}}
+                        else if(hasS&&(n('sp')<=0||n('sw')<=0)){e='e_silver';if(n('sp')<=0){mark(f('sp'),'zscu-input-error');}if(n('sw')<=0){mark(f('sw'),'zscu-input-error');}}
+                        else if(f('nisab').value==='gold'&&hasG&&n('gp')<=0){e='e_nisab_gold';mark(f('gp'),'zscu-input-error');}
+                        else if(f('nisab').value==='silver'&&hasS&&n('sp')<=0){e='e_nisab_silver';mark(f('sp'),'zscu-input-error');}
+                    }
+                    if(state.mode==='fitr'){
+                        if(i('fp')<=0){e='e_fp';mark(f('fp'),'zscu-input-error');} else if(n('fa')<=0){e='e_fa';mark(f('fa'),'zscu-input-error');}
+                    }
+                    if(state.mode==='fk'){
+                        if(!fkMode()){e='e_fkm';qsa('.zscu-choice').forEach(function(c){mark(c,'zscu-choice-error');});}
+                        else if(i('fd')<=0){e='e_fd';mark(f('fd'),'zscu-input-error');}
+                        else if(n('fda')<=0){e='e_fda';mark(f('fda'),'zscu-input-error');}
+                        else if(i('fkp')<=0){e='e_fkp';mark(f('fkp'),'zscu-input-error');}
+                    }
+                    if(!silent){if(e){err(tr(e));if(firstBad){softScroll(firstBad);}}else{clearErr();}}
+                    return !e;
                 }
-                else if (s === 'z_fitr') {
-                    var people = getVal('people') || 1;
-                    result.amount = people * 12;
-                    result.eligible = true;
-                    result.rows.push({l: x.l_people, v: people});
+                function updateSubmit(){var btn=qs('[data-r="submit"]');var ok=valid(true);btn.classList.toggle('is-disabled',!ok);btn.setAttribute('aria-disabled',ok?'false':'true');if(ok){clearFieldErrors();clearErr();}}    
+                function row(label,val){var r=document.createElement('div');r.className='zscu-row';var s1=document.createElement('span');s1.textContent=label;var s2=document.createElement('strong');s2.textContent=noCurrency(val);r.appendChild(s1);r.appendChild(s2);return r;}
+                function render(res){var wrap=qs('[data-r="result-wrap"]');var m=qs('[data-r="result"]');m.innerHTML='';var card=document.createElement('div');card.className='zscu-result';var hd=document.createElement('div');hd.className='zscu-result-head';var st=document.createElement('div');st.className='zscu-status '+res.sc;st.textContent=res.st;hd.appendChild(st);var a=document.createElement('span');a.className='zscu-amount-inline';a.textContent=noCurrency(money(res.amount));hd.appendChild(a);var al=document.createElement('span');al.className='zscu-amount-inline-label';al.textContent=res.al;hd.appendChild(al);card.appendChild(hd);var rows=document.createElement('div');rows.className='zscu-rows';res.rows.forEach(function(it){rows.appendChild(row(it.l,it.v));});card.appendChild(rows);var sum=document.createElement('div');sum.className='zscu-summary';sum.textContent=tr('summary')+': '+noCurrency(res.sum);card.appendChild(sum);if(showCta&&res.cta){var c=document.createElement('div');c.className='zscu-cta';c.textContent=res.cta;card.appendChild(c);}m.appendChild(card);wrap.hidden=false;softScroll(wrap);}
+                function calc(){if(!valid(false)){return;}var res;
+                    if(state.mode==='maal'){
+                        var c=f('asset_cash').checked?n('cash'):0,gp=f('asset_gold').checked?n('gp'):0,gw=f('asset_gold').checked?n('gw'):0,sp=f('asset_silver').checked?n('sp'):0,sw=f('asset_silver').checked?n('sw'):0;
+                        var gv=gp*gw,sv=sp*sw,total=c+gv+sv,nisType=f('nisab').value,canCheck=(nisType==='gold'?gp>0:sp>0),nis=canCheck?(nisType==='gold'?85*gp:595*sp):0,ok=canCheck?(total>=nis&&nis>0):true,due=canCheck?(ok?total*0.025:0):total*0.025;
+                        var rows=[];if(f('asset_cash').checked){rows.push({l:tr('row_cash'),v:money(c)});}if(f('asset_gold').checked){rows.push({l:tr('row_gold'),v:money(gv)});}if(f('asset_silver').checked){rows.push({l:tr('row_silver'),v:money(sv)});}rows.push({l:tr('row_total'),v:money(total)});rows.push({l:tr('row_nisab_std'),v:nisType==='gold'?tr('std_gold'):tr('std_silver')});rows.push({l:tr('row_nisab'),v:canCheck?money(nis):tr('nisab_na')});
+                        res={sc:canCheck?(ok?'ok':'bad'):'info',st:canCheck?(ok?tr('status_ok'):tr('status_bad')):tr('status_info'),amount:due,al:tr('due_zakat'),rows:rows,sum:money(total)+' x 2.5% = '+money(due),cta:tr('cta_maal')};
+                    }
+                    if(state.mode==='fitr'){
+                        var p=i('fp'),a=n('fa'),tot=p*a;
+                        res={sc:'info',st:tr('status_info'),amount:tot,al:tr('due_fitr'),rows:[{l:tr('persons'),v:String(p)},{l:tr('row_amount_person'),v:money(a)}],sum:p+' '+tr('persons').toLowerCase()+' x '+money(a)+' = '+money(tot),cta:tr('cta_fitr')};
+                    }
+                    if(state.mode==='fk'){
+                        var mode=fkMode(),d=i('fd'),da=n('fda'),p2=i('fkp'),tot2=d*da*p2,isF=mode==='fidya';
+                        res={sc:'info',st:tr('status_info'),amount:tot2,al:isF?tr('due_fidya'):tr('due_kaffarah'),rows:[{l:tr('row_mode'),v:isF?tr('fidya_label'):tr('kaffarah_label')},{l:tr('missed_days'),v:String(d)},{l:tr('row_amount_day'),v:money(da)},{l:tr('persons'),v:String(p2)}],sum:d+' x '+money(da)+' x '+p2+' = '+money(tot2),cta:isF?tr('cta_fidya'):tr('cta_kaff')};
+                    }
+                    state.last=res;render(res);
                 }
-                else if (s === 'z_rental') {
-                    var rent = getVal('rent');
-                    result.net = rent;
-                    result.amount = rent * 0.025;
-                    result.eligible = rent > 0;
-                    result.rows.push({l: x.l_rent, v: '$'+rent.toFixed(2)});
-                }
-                else if (s === 'z_invest') {
-                    var port = getVal('portfolio');
-                    var gp = getVal('gold_price');
-                    var sp = getVal('silver_price');
-                    var debts = getVal('debts');
-                    result.nisab = Math.min(85*gp, 595*sp);
-                    result.net = port - debts;
-                    result.eligible = result.net >= result.nisab && result.nisab > 0;
-                    result.amount = result.eligible ? result.net * 0.025 : 0;
-                    result.rows.push({l: x.l_portfolio, v: '$'+port});
-                    if (debts > 0) result.rows.push({l: x.l_debts, v: '$'+debts, d: true});
-                }
-                else if (s === 'z_pension') {
-                    var pen = getVal('pension');
-                    result.amount = pen * 0.025;
-                    result.eligible = pen > 0;
-                    result.rows.push({l: x.l_pension, v: '$'+pen});
-                }
-                else if (s === 'z_business') {
-                    var biz = getVal('business');
-                    var debts = getVal('debts');
-                    result.net = biz - debts;
-                    result.amount = Math.max(0, result.net) * 0.025;
-                    result.eligible = result.amount > 0;
-                    result.rows.push({l: x.l_business, v: '$'+biz});
-                    if (debts > 0) result.rows.push({l: x.l_debts, v: '$'+debts, d: true});
-                }
-                else if (s === 'z_agri') {
-                    var prod = getVal('produce');
-                    result.amount = prod * 0.1;
-                    result.eligible = prod > 0;
-                    result.rows.push({l: x.l_produce, v: '$'+prod});
-                }
-                else if (s === 'z_livestock') {
-                    var animals = getVal('animals');
-                    result.eligible = animals >= 40;
-                    result.amount = result.eligible ? Math.floor(animals/40)*100 : 0;
-                    result.rows.push({l: x.l_animals, v: animals});
-                }
-                else {
-                    // Sadaqah
-                    var qty = getVal('quantity') || 1;
-                    var amt = getVal('amount');
-                    result.eligible = true;
-                    result.amount = qty * amt;
-                    result.rows.push({l: x.l_quantity, v: qty});
-                    result.rows.push({l: x.l_amount, v: '$'+amt.toFixed(2)});
-                }
-                
-                if (result.nisab > 0) result.rows.push({l: x.nisab, v: '$'+result.nisab.toFixed(2)});
-                
-                this.renderResults(result, x);
-                this.goTo(4);
-            },
-            
-            renderResults: function(r, x) {
-                var container = document.getElementById('zscu-result');
-                var html = '';
-                
-                html += '<div class="zscu-result">';
-                html += '<div class="zscu-status '+(r.eligible?'eligible':'not-eligible')+'">'+(r.eligible?x.eligible:x.not_eligible)+'</div>';
-                html += '<div class="zscu-amount">$'+r.amount.toFixed(2)+'</div>';
-                html += '<div class="zscu-amount-label">'+(r.isZakat?x.zakat_due:x.sadaqah_due)+'</div>';
-                if (r.isZakat) html += '<div class="zscu-rate">'+x.rate+'</div>';
-                html += '</div>';
-                
-                html += '<div class="zscu-breakdown">';
-                html += '<div class="zscu-breakdown-title">📊 Calculation</div>';
-                r.rows.forEach(function(row) {
-                    html += '<div class="zscu-row">';
-                    html += '<span class="zscu-row-label">'+row.l+'</span>';
-                    html += '<span class="zscu-row-value'+(row.d?' deduct':'')+'">'+row.v+'</span>';
-                    html += '</div>';
-                });
-                html += '</div>';
-                
-                if (this.showCta && r.eligible) {
-                    html += '<div class="zscu-cta">';
-                    html += '<div class="zscu-cta-title">🤲 '+x.cta_title+'</div>';
-                    html += '<div class="zscu-cta-text">'+x.cta_text+'</div>';
-                    html += '<a href="'+this.ctaUrl+'" target="_blank" class="zscu-cta-btn">'+x.cta_btn+' →</a>';
-                    html += '</div>';
-                }
-                
-                container.innerHTML = html;
-            }
-        };
-        
-        zscu.showCta = <?php echo $show_cta ? 'true' : 'false'; ?>;
-        zscu.ctaUrl = '<?php echo esc_js($cta_url); ?>';
-        zscu.init();
-        window.zscu = zscu;
-    })();
-    </script>
+                function reset(){clearErr();state.last=null;qs('[data-r="result-wrap"]').hidden=true;qs('[data-r="result"]').innerHTML='';if(state.mode==='maal'){['cash','gp','gw','sp','sw'].forEach(function(k){f(k).value='';});f('asset_cash').checked=true;f('asset_gold').checked=false;f('asset_silver').checked=false;f('nisab').value='gold';toggleAssets();}if(state.mode==='fitr'){f('fp').value='';f('fa').value='';}if(state.mode==='fk'){qsa('input[data-f="fkm"]').forEach(function(r){r.checked=false;});f('fd').value='';f('fda').value='';f('fkp').value='';toggleFkInfo();}updateSubmit();}
+                function openModal(tt,bb){qs('[data-r="modal-title"]').textContent=tt;qs('[data-r="modal-body"]').textContent=bb;var bg=qs('[data-r="modal-bg"]');bg.classList.add('open');bg.setAttribute('aria-hidden','false');}
+                function closeModal(){var bg=qs('[data-r="modal-bg"]');bg.classList.remove('open');bg.setAttribute('aria-hidden','true');}
+
+                qs('[data-r="lang-toggle"]').addEventListener('click',function(){var m=qs('[data-r="lang-menu"]');var open=m.classList.toggle('open');qs('[data-r="lang-toggle"]').setAttribute('aria-expanded',open?'true':'false');});
+                qsa('.zscu-lang-item').forEach(function(b){b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'),b.getAttribute('data-flag'),b.getAttribute('data-code'),b.getAttribute('data-rtl')==='1');qs('[data-r="lang-menu"]').classList.remove('open');qs('[data-r="lang-toggle"]').setAttribute('aria-expanded','false');});});
+                root.addEventListener('click',function(e){var m=qs('[data-r="lang-menu"]'),tgg=qs('[data-r="lang-toggle"]');if(m.classList.contains('open')&&!m.contains(e.target)&&!tgg.contains(e.target)){m.classList.remove('open');tgg.setAttribute('aria-expanded','false');}});
+                document.addEventListener('click',function(e){if(!root.contains(e.target)){qs('[data-r="lang-menu"]').classList.remove('open');qs('[data-r="lang-toggle"]').setAttribute('aria-expanded','false');}});
+                qsa('.zscu-mode').forEach(function(b){b.addEventListener('click',function(){setMode(b.getAttribute('data-mode'));});});
+                ['asset_cash','asset_gold','asset_silver','cash','gp','gw','sp','sw','nisab','fp','fa','fd','fda','fkp'].forEach(function(k){var el=f(k);if(el){el.addEventListener('input',updateSubmit);el.addEventListener('change',function(){if(k.indexOf('asset_')===0){toggleAssets();}updateSubmit();});}});
+                qsa('input[data-f="fkm"]').forEach(function(r){r.addEventListener('change',function(){toggleFkInfo();updateSubmit();});});
+                qsa('.zscu-help').forEach(function(b){b.addEventListener('click',function(){if(b.getAttribute('data-help')==='fidya'){openModal(tr('h_fidya_t'),tr('h_fidya_b'));}else{openModal(tr('h_kaff_t'),tr('h_kaff_b'));}});});
+                qs('[data-r="modal-close"]').addEventListener('click',closeModal);
+                qs('[data-r="modal-bg"]').addEventListener('click',function(e){if(e.target===qs('[data-r="modal-bg"]')){closeModal();}});
+                root.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();qs('[data-r="lang-menu"]').classList.remove('open');qs('[data-r="lang-toggle"]').setAttribute('aria-expanded','false');}});
+                qs('[data-r="submit"]').addEventListener('click',calc);
+                qs('[data-r="reset"]').addEventListener('click',reset);
+
+                txt();toggleAssets();toggleFkInfo();setMode(initialMode,true);updateSubmit();
+            })();
+        </script>
+    </div>
     <?php
     return ob_get_clean();
 }
 
-// Admin
-add_action('admin_menu', function() {
+function zscu_normalize_default_mode($raw) {
+    $v = strtolower(trim((string) $raw));
+
+    if (in_array($v, array('1', 'fitr', 'zakat al fitr', 'zakat_al_fitr', 'zakat-al-fitr'), true)) {
+        return 'fitr';
+    }
+
+    if (in_array($v, array('2', 'fk', 'fidya', 'kaffarah', 'fidya kaffarah', 'fidya_kaffarah', 'fidya-kaffarah', 'kaffarah fidya', 'kaffarah_fidya', 'kaffarah-fidya'), true)) {
+        return 'fk';
+    }
+
+    if (in_array($v, array('3', 'maal', 'zakat', 'zakat al maal', 'zakat_al_maal', 'zakat-al-maal'), true)) {
+        return 'maal';
+    }
+
+    return 'maal';
+}
+
+add_action('admin_menu', function () {
     add_options_page('Zakat Ultimate', 'Zakat Ultimate', 'manage_options', 'zakat-ultimate', 'zscu_admin');
 });
 
 function zscu_admin() {
     ?>
     <div class="wrap">
-        <h1>🕌 Zakat Ultimate v3.1</h1>
+        <h1>Zakat Ultimate v3.2</h1>
         <div class="notice notice-info">
-            <p><code>[zakat_ultimate]</code> - Standard (no CTA)</p>
-            <p><code>[zakat_ultimate_pro]</code> - With CTA</p>
+            <p><code>[zakat_ultimate]</code> - Standard Ramadan calculator</p>
+            <p><code>[zakat_ultimate_pro]</code> - Same calculator + CTA headline block in results</p>
+            <p><strong>Default mode attribute:</strong> <code>default=\"1\"</code> (Fitr), <code>default=\"2\"</code> (Fidya/Kaffarah), <code>default=\"3\"</code> (Maal)</p>
+            <p>Also supported: <code>default=\"fitr\"</code>, <code>default=\"fk\"</code>, <code>default=\"maal\"</code></p>
         </div>
-        <h3>Features:</h3>
+        <h3>Ramadan v1 Features</h3>
         <ul>
-            <li>✅ Fixed height container - no jumping</li>
-            <li>✅ Smaller subtype icons for better UX</li>
-            <li>✅ 10 Zakat types + 4 Sadaqah types</li>
-            <li>✅ Material dropdowns for Jewelry</li>
-            <li>✅ Beneficiary/frequency for Sadaqah</li>
-            <li>✅ Help tooltips</li>
-            <li>✅ Correct Islamic calculations</li>
+            <li>Compact fixed-size single-card UX</li>
+            <li>Top-corner language switcher (default English)</li>
+            <li>Zakat al-Maal with Cash/Gold/Silver multi-select and Nisab check</li>
+            <li>Zakat al-Fitr quick calculator</li>
+            <li>Fidya / Kaffarah single-choice mode with help popups</li>
+            <li>Improved wording and calculation summary lines</li>
+            <li>Single-file plugin architecture (lightweight)</li>
         </ul>
     </div>
     <?php

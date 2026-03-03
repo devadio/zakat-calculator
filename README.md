@@ -1,122 +1,104 @@
 === Zakat Ultimate ===
 Contributors: Custom Plugin
-Tags: zakat, sadaqah, charity, islamic, calculator, i18n
+Tags: zakat, ramadan, zakat al fitr, fidya, kaffarah, islamic, calculator
 Requires at least: 5.0
-Tested up to: 6.4
+Tested up to: 6.6
 Requires PHP: 7.0
-Stable tag: 3.0.0
+Stable tag: 3.2.0
 License: GPL v2 or later
 
-Ultimate Zakat & Sadaqah calculator with correct Islamic calculations and two shortcode options.
+Lightweight Ramadan calculator for Zakat al-Maal, Zakat al-Fitr, Fidya, and Kaffarah.
 
 == Description ==
 
-**Zakat Ultimate** is a production-ready WordPress plugin for calculating Zakat and Sadaqah with correct Islamic jurisprudence.
+**Zakat Ultimate** is a compact, fixed-size WordPress calculator focused on top Ramadan use cases.
 
-**Two Shortcodes:**
+**Shortcodes**
 
-1. `[zakat_ultimate]` - Standard version
-   - All calculator features
-   - No CTA/donation button
-   
-2. `[zakat_ultimate_pro]` - Pro version with CTA
-   - All calculator features
-   - Donation CTA button linking to https://lph.elvefa.org/
+1. `[zakat_ultimate]`
+   - Full calculator
+   - No final CTA headline block
 
-**Key Features:**
+2. `[zakat_ultimate_pro]`
+   - Full calculator
+   - Final CTA headline block in result card
 
-### Zakat Types (10)
-- **Cash & Savings (Maal)** - Gold/Silver/Cash with material dropdown
-- **Income & Salary** - Monthly calculations
-- **Zakat Al-Fitr** - Per person calculation
-- **Rental Property** - Annual rental income
-- **Investments** - Stocks/bonds with Nisab check
-- **Pension** - Retirement savings
-- **Jewelry** - Gold/Silver with purity selection
-- **Business** - Trade goods inventory
-- **Agriculture** - Produce (10% rate)
-- **Livestock** - Animals (40+ threshold)
+**Default Mode Control**
 
-### Sadaqah Types (4)
-- **General Sadaqah** - Any amount
-- **Sadaqah Jariyah** - Ongoing charity (wells, mosques)
-- **Education Support** - Students sponsorship
-- **Medical Aid** - Patient support
+You can set the default opened calculator mode using shortcode attribute `default`:
 
-**Sadaqah Features:**
-- Beneficiary type dropdown (Orphans, Families, Refugees, Poor, Students, Patients)
-- Frequency selection (One-time, Monthly, Quarterly)
-- Quantity input
-- Amount per person
+- `default="1"` or `default="fitr"` -> Zakat al-Fitr
+- `default="2"` or `default="fk"` -> Fidya / Kaffarah
+- `default="3"` or `default="maal"` -> Zakat al-Maal
 
-### 11 Languages
-🇬🇧 English | 🇸🇦 Arabic (RTL) | 🇮🇩 Indonesian | 🇹🇷 Turkish | 🇵🇰 Urdu (RTL) | 🇩🇪 German | 🇪🇸 Spanish | 🇫🇷 French | 🇮🇹 Italian | 🇵🇹 Portuguese
+Examples:
+- `[zakat_ultimate default="1"]`
+- `[zakat_ultimate_pro default="fk"]`
 
-### User Experience
-✅ **Step-by-step wizard** (5 steps with progress indicator)
-✅ **Help tooltips** on each field (? icons)
-✅ **Back button** preserves selections
-✅ **Print results** button
-✅ **Responsive design** (mobile-first)
-✅ **RTL support** for Arabic/Urdu
+**Calculators Included**
 
-### Correct Islamic Calculations
-✅ **Nisab:** Lower of Gold (85g) or Silver (595g)
-✅ **Zakat Rate:** 2.5% on eligible wealth
-✅ **Debts:** Deducted from zakatable wealth
-✅ **Hawl:** One lunar year requirement noted
-✅ **Different rates:** Agriculture (10%), Livestock (variable)
+1. **Zakat al-Maal**
+   - Multi-select assets: Cash, Gold, Silver
+   - Dynamic Nisab check (Gold 85g / Silver 595g)
+   - Zakat formula: `2.5%` after Nisab eligibility
+   - No debt input in this version
+
+2. **Zakat al-Fitr**
+   - Number of persons + average amount per person
+   - One-line formula summary in results
+
+3. **Fidya / Kaffarah**
+   - Single-choice mode:
+     - Fidya (sick/elderly)
+     - Kaffarah (Intentional fast-break)
+   - Missed days, amount per day, number of persons
+   - One-line formula summary in results
+
+**UX Features**
+
+- Fixed-size compact card (stable UI)
+- Top-corner language switcher (default English)
+- Help popups for Fidya and Kaffarah guidance
+- Inline validation with clean error messages
+- Works as a single lightweight PHP file (no build step)
 
 == Installation ==
 
-1. Upload `zakat-ultimate` folder to `/wp-content/plugins/`
-2. Activate the plugin through 'Plugins' menu
-3. Use either shortcode on any page:
-   - `[zakat_ultimate]` - Standard
-   - `[zakat_ultimate_pro]` - With CTA
+1. Upload `zakat-ultimate` to `/wp-content/plugins/`
+2. Activate from the WordPress Plugins page
+3. Insert shortcode in a page/post:
+   - `[zakat_ultimate]`
+   - `[zakat_ultimate_pro]`
 
 == Frequently Asked Questions ==
 
 = Which shortcode should I use? =
-- Use `[zakat_ultimate]` for a clean calculator without donation prompts
-- Use `[zakat_ultimate_pro]` if you want to encourage donations via your link
+- Use `[zakat_ultimate]` for the calculator only.
+- Use `[zakat_ultimate_pro]` to show the final CTA headline block in results.
 
-= How accurate are the calculations? =
-Calculations follow traditional Hanafi fiqh and are verified against established Zakat guidelines. Consult a scholar for complex cases.
+= Can I choose which calculator opens by default? =
+Yes. Use shortcode attribute `default` with `1/2/3` (or `fitr/fk/maal`).
 
-= Can users go back and change selections? =
-Yes! The back button preserves all selections and data.
+= Does this plugin support multiple instances on one page? =
+Yes. Each rendered calculator instance is scoped independently.
 
-= Is it mobile-friendly? =
-Yes, designed mobile-first with touch-friendly interfaces.
-
-= Can I change the CTA link in Pro version? =
-Edit line 13 in the PHP file where `$cta_url` is defined.
-
-= Does it support Right-to-Left languages? =
-Yes, Arabic and Urdu are fully RTL supported.
+= Is this calculator mobile-friendly? =
+Yes. The card remains compact and fixed-size with responsive layout rules.
 
 == Changelog ==
 
-= 3.0.0 =
-* Initial release
-* Two shortcode options
-* 10 Zakat types with correct calculations
-* 4 Sadaqah types with beneficiary/frequency
-* Material dropdown for Jewelry
-* Help tooltips throughout
-* Back button state preservation
-* Print results feature
-* 11 languages
+= 3.2.0 =
+* Ramadan v1 refactor
+* Removed language selection step
+* Added top-corner language switcher
+* Reduced scope to Zakat al-Maal, Zakat al-Fitr, Fidya, and Kaffarah
+* Added pro-only CTA headline block in final results
+* Improved English copy, labels, and formula summaries
+
+= 3.1.0 =
+* Previous multi-step calculator release
 
 == Upgrade Notice ==
 
-This is a complete rewrite with focus on:
-- Correct Islamic calculations
-- Excellent UX/UI/CX
-- Lightweight single-file architecture
-- No build step required
-
-== Credits ==
-
-Built with vanilla JavaScript and WordPress best practices.
+= 3.2.0 =
+This is a focused Ramadan refactor with cleaner UX and fewer, higher-priority calculator modes.

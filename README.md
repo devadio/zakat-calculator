@@ -1,5 +1,5 @@
 === Zakat Ultimate ===
-Contributors: Custom Plugin
+Contributors: Abdullah HA - devad.me
 Tags: zakat, ramadan, zakat al fitr, fidya, kaffarah, islamic, calculator
 Requires at least: 5.0
 Tested up to: 6.6
